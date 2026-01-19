@@ -24,14 +24,57 @@
                         <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                     </svg>
                 </div>
-                <h1>Bolero Manager</h1>
-                <p class="subtitle">Enter passcode to access</p>
+                <h1>Welcome to Bolero Manager</h1>
+                <p class="subtitle">Collaborative Crew Management</p>
                 <div id="show-name-display" class="show-name"></div>
+                <p class="login-description">You've been invited to collaborate on this show's intercom assignments. Enter the passcode provided by your production team to access the shared data.</p>
                 <form id="passcode-form">
-                    <input type="password" id="passcode-input" placeholder="Passcode" autocomplete="off" required>
+                    <input type="password" id="passcode-input" placeholder="Enter passcode" autocomplete="off" required>
                     <button type="submit" class="btn primary">Unlock</button>
                 </form>
                 <p id="passcode-error" class="error hidden"></p>
+            </div>
+        </div>
+
+        <!-- Welcome Modal -->
+        <div id="welcome-modal" class="modal hidden">
+            <div class="modal-backdrop"></div>
+            <div class="modal-content">
+                <div class="modal-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                </div>
+                <h2>You're In!</h2>
+                <p class="modal-subtitle" id="welcome-show-name">Welcome to the show</p>
+                <div class="modal-body">
+                    <p>This is a <strong>live collaboration tool</strong> for managing Bolero intercom assignments. Here's what you can do:</p>
+                    <ul class="feature-list">
+                        <li>
+                            <span class="feature-icon">&#9998;</span>
+                            <span><strong>Edit names</strong> - Update first name, last name, and username fields</span>
+                        </li>
+                        <li>
+                            <span class="feature-icon">&#128266;</span>
+                            <span><strong>Assign channels</strong> - Click any channel slot to change assignments</span>
+                        </li>
+                        <li>
+                            <span class="feature-icon">&#127911;</span>
+                            <span><strong>Set headset type</strong> - Click the headset icon to change type</span>
+                        </li>
+                        <li>
+                            <span class="feature-icon">&#128221;</span>
+                            <span><strong>Add notes</strong> - Include any relevant information</span>
+                        </li>
+                        <li>
+                            <span class="feature-icon">&#9889;</span>
+                            <span><strong>Real-time sync</strong> - Changes save automatically and sync with the production team</span>
+                        </li>
+                    </ul>
+                    <p class="modal-note" id="permissions-note"></p>
+                </div>
+                <button class="btn primary modal-close-btn" id="welcome-close-btn">Got it, let's go!</button>
             </div>
         </div>
 

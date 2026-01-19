@@ -242,6 +242,7 @@ async function loadSharedData() {
 
         showView('editor');
         renderEditor();
+        showWelcomeModal();
 
         setInterval(refreshData, CONFIG.refreshInterval);
 
@@ -842,3 +843,46 @@ function updateLastUpdated() {
 }
 
 setInterval(updateLastUpdated, 60000);
+
+// Welcome Modal
+function showWelcomeModal() {
+    const modal = document.getElementById('welcome-modal');
+    const showNameEl = document.getElementById('welcome-show-name');
+    const permissionsNote = document.getElementById('permissions-note');
+    const closeBtn = document.getElementById('welcome-close-btn');
+
+    // Set show name
+    let displayName = state.showData.name;
+    if (state.shareName) {
+        displayName = `${state.shareName} - ${state.showData.name}`;
+    }
+    showNameEl.textContent = displayName;
+
+    // Set permissions note if restricted
+    if (state.editableDepartments && state.editableDepartments.length > 0) {
+        permissionsNote.innerHTML = `<strong>Note:</strong> You have edit access for <strong>${state.editableDepartments.join(', ')}</strong> department${state.editableDepartments.length > 1 ? 's' : ''} only. Other departments are view-only.`;
+    } else {
+        permissionsNote.textContent = '';
+    }
+
+    // Show modal
+    modal.classList.remove('hidden');
+
+    // Close button handler
+    closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+
+    // Close on backdrop click
+    modal.querySelector('.modal-backdrop').addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') {
+            modal.classList.add('hidden');
+            document.removeEventListener('keydown', escHandler);
+        }
+    });
+}
