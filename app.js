@@ -339,14 +339,14 @@ function createUserRow(user) {
     // Headset (icon with hidden select)
     row.appendChild(createHeadsetCell(user));
 
-    // Notes
-    row.appendChild(createNotesCell(user));
-
     // Channel assignments
     const channelCount = state.showData.channelSlotCount || 6;
     for (let i = 0; i < channelCount; i++) {
         row.appendChild(createChannelCell(user, i));
     }
+
+    // Notes (far right)
+    row.appendChild(createNotesCell(user));
 
     return row;
 }
@@ -383,7 +383,7 @@ function createDepartmentCell(user) {
     bubble.className = 'dept-bubble';
 
     if (user.department) {
-        const color = state.departmentColors[user.department];
+        const color = getDepartmentColor(user.department);
         if (color) {
             bubble.classList.add('has-color');
             bubble.style.backgroundColor = color;
@@ -398,6 +398,30 @@ function createDepartmentCell(user) {
 
     cell.appendChild(bubble);
     return cell;
+}
+
+function getDepartmentColor(department) {
+    if (!department) return null;
+
+    // Try exact match first
+    if (state.departmentColors[department]) {
+        return state.departmentColors[department];
+    }
+
+    // Try case-insensitive match in departmentColors
+    const upperDept = department.toUpperCase();
+    for (const [key, value] of Object.entries(state.departmentColors)) {
+        if (key.toUpperCase() === upperDept) {
+            return value;
+        }
+    }
+
+    // Try matching channel color (departments and channels can share colors)
+    if (state.channelColors[upperDept]) {
+        return state.channelColors[upperDept];
+    }
+
+    return null;
 }
 
 function createNotesCell(user) {
