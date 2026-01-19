@@ -319,14 +319,18 @@ th {
 
 .col-bp { width: 40px; text-align: center; }
 .col-name { width: 140px; }
-.col-username { width: 90px; }
+.col-username { width: 120px; }
 .col-dept { width: 80px; text-align: center; }
 .col-headset { width: 45px; text-align: center; }
 .col-notes { width: 400px; }
-.col-channel { width: auto; text-align: center; white-space: nowrap; }
+.col-channel { width: auto; text-align: center; white-space: nowrap; padding: 6px 2px; }
 
 td {
     font-size: 13px;
+}
+
+td.channel-cell {
+    padding: 4px 1px;
 }
 
 td.bp-cell {
@@ -510,7 +514,7 @@ tr.view-only td {
 
 /* Channel cells with color bubble */
 .channel-cell {
-    padding: 2px 1px;
+    padding: 2px 0;
     text-align: center;
 }
 
