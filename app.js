@@ -193,10 +193,16 @@ async function loadSharedData() {
             if (showRecord.fields.departmentColorsJSON && showRecord.fields.departmentColorsJSON.value) {
                 try {
                     state.departmentColors = JSON.parse(showRecord.fields.departmentColorsJSON.value);
+                    console.log('Loaded department colors:', state.departmentColors);
                 } catch (e) {
+                    console.log('Failed to parse departmentColorsJSON:', e);
                     state.departmentColors = {};
                 }
+            } else {
+                console.log('No departmentColorsJSON field found in show record');
             }
+
+            console.log('Channel colors:', state.channelColors);
         }
 
         const query = {
@@ -405,6 +411,7 @@ function getDepartmentColor(department) {
 
     // Try exact match first
     if (state.departmentColors[department]) {
+        console.log(`Department "${department}" - exact match found:`, state.departmentColors[department]);
         return state.departmentColors[department];
     }
 
@@ -412,15 +419,18 @@ function getDepartmentColor(department) {
     const upperDept = department.toUpperCase();
     for (const [key, value] of Object.entries(state.departmentColors)) {
         if (key.toUpperCase() === upperDept) {
+            console.log(`Department "${department}" - case-insensitive match found:`, value);
             return value;
         }
     }
 
     // Try matching channel color (departments and channels can share colors)
     if (state.channelColors[upperDept]) {
+        console.log(`Department "${department}" - channel color match found:`, state.channelColors[upperDept]);
         return state.channelColors[upperDept];
     }
 
+    console.log(`Department "${department}" - no color found. Available dept colors:`, state.departmentColors, 'Channel colors:', state.channelColors);
     return null;
 }
 
@@ -510,6 +520,12 @@ function createChannelCell(user, index) {
         const option = document.createElement('option');
         option.value = channel;
         option.textContent = channel;
+        // Add color to option if available
+        const color = state.channelColors[channel.toUpperCase()];
+        if (color) {
+            option.style.backgroundColor = color;
+            option.style.color = 'white';
+        }
         select.appendChild(option);
     });
 

@@ -305,12 +305,12 @@ th {
 }
 
 .col-bp { width: 40px; text-align: center; }
-.col-name { width: 120px; }
-.col-username { width: 100px; }
-.col-dept { width: 90px; text-align: center; }
-.col-headset { width: 50px; text-align: center; }
-.col-notes { width: 180px; }
-.col-channel { width: 28px; text-align: center; }
+.col-name { width: 100px; }
+.col-username { width: 90px; }
+.col-dept { width: 80px; text-align: center; }
+.col-headset { width: 45px; text-align: center; }
+.col-notes { width: 400px; }
+.col-channel { width: 26px; text-align: center; }
 
 td {
     font-size: 13px;
@@ -443,18 +443,18 @@ td input.notes-input::placeholder {
 
 /* Channel cells with color bubble */
 .channel-cell {
-    padding: 2px 1px;
+    padding: 2px 0;
     text-align: center;
 }
 
 .channel-bubble {
     display: inline-block;
-    padding: 2px 4px;
-    border-radius: 6px;
-    font-size: 9px;
-    font-weight: 500;
+    padding: 2px 3px;
+    border-radius: 5px;
+    font-size: 8px;
+    font-weight: 600;
     text-align: center;
-    min-width: 24px;
+    min-width: 22px;
     cursor: pointer;
     transition: opacity 0.15s;
 }
@@ -484,6 +484,8 @@ td input.notes-input::placeholder {
 .channel-select-wrapper {
     position: relative;
     display: inline-block;
+    margin: 0;
+    padding: 0;
 }
 
 .channel-select-wrapper select {
@@ -494,6 +496,11 @@ td input.notes-input::placeholder {
     height: 100%;
     opacity: 0;
     cursor: pointer;
+}
+
+/* Channel select dropdown options with colors */
+.channel-select-wrapper select option {
+    padding: 4px 8px;
 }
 
 /* Headset icon cell */
