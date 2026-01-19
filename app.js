@@ -222,6 +222,7 @@ async function loadSharedData() {
                 department: record.fields.department ? record.fields.department.value : '',
                 role: record.fields.role ? record.fields.role.value : '',
                 headsetType: record.fields.headsetType ? record.fields.headsetType.value : 'Single Ear',
+                notes: record.fields.notes ? record.fields.notes.value : '',
                 recordChangeTag: record.recordChangeTag
             }));
 
@@ -251,13 +252,66 @@ function renderEditor() {
     headerCell.colSpan = channelCount;
     headerCell.textContent = `Channels`;
 
+    // Set up department filter event listener (only once)
+    const filterSelect = document.getElementById('dept-filter');
+    if (!filterSelect.hasAttribute('data-listener-added')) {
+        filterSelect.addEventListener('change', renderUsers);
+        filterSelect.setAttribute('data-listener-added', 'true');
+    }
+
+    // Populate department filter
+    populateDepartmentFilter();
+
+    // Render users (with filter applied)
+    renderUsers();
+}
+
+function populateDepartmentFilter() {
+    const filterSelect = document.getElementById('dept-filter');
+    const currentValue = filterSelect.value;
+
+    // Clear existing options except "All"
+    filterSelect.innerHTML = '<option value="">All Departments</option>';
+
+    // Get unique departments from users
+    const departments = [...new Set(state.users.map(u => u.department).filter(d => d))].sort();
+
+    departments.forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept;
+        option.textContent = dept;
+        filterSelect.appendChild(option);
+    });
+
+    // Restore selection if still valid
+    if (departments.includes(currentValue)) {
+        filterSelect.value = currentValue;
+    }
+}
+
+function renderUsers() {
     const tbody = document.getElementById('users-body');
     tbody.innerHTML = '';
 
-    state.users.forEach(user => {
+    const filterValue = document.getElementById('dept-filter').value;
+
+    let filteredUsers = state.users;
+    if (filterValue) {
+        filteredUsers = state.users.filter(u => u.department === filterValue);
+    }
+
+    filteredUsers.forEach(user => {
         const row = createUserRow(user);
         tbody.appendChild(row);
     });
+
+    // Update user count
+    const countEl = document.getElementById('user-count');
+    if (filterValue) {
+        countEl.textContent = `Showing ${filteredUsers.length} of ${state.users.length} users`;
+    } else {
+        countEl.textContent = `${state.users.length} users`;
+    }
 }
 
 function createUserRow(user) {
@@ -284,6 +338,9 @@ function createUserRow(user) {
 
     // Headset (icon with hidden select)
     row.appendChild(createHeadsetCell(user));
+
+    // Notes
+    row.appendChild(createNotesCell(user));
 
     // Channel assignments
     const channelCount = state.showData.channelSlotCount || 6;
@@ -320,29 +377,47 @@ function createEditableCell(user, field, value, isUsername = false) {
 
 function createDepartmentCell(user) {
     const cell = document.createElement('td');
+    cell.className = 'dept-cell';
+
+    const bubble = document.createElement('span');
+    bubble.className = 'dept-bubble';
 
     if (user.department) {
-        const badge = document.createElement('span');
-        badge.className = 'dept-badge';
-
         const color = state.departmentColors[user.department];
         if (color) {
-            const dot = document.createElement('span');
-            dot.className = 'dept-color-dot';
-            dot.style.backgroundColor = color;
-            badge.appendChild(dot);
+            bubble.classList.add('has-color');
+            bubble.style.backgroundColor = color;
+        } else {
+            bubble.classList.add('no-color');
         }
-
-        const text = document.createElement('span');
-        text.textContent = user.department;
-        badge.appendChild(text);
-
-        cell.appendChild(badge);
+        bubble.textContent = user.department;
     } else {
-        cell.textContent = '--';
-        cell.style.color = 'var(--text-muted)';
+        bubble.classList.add('empty');
+        bubble.textContent = '--';
     }
 
+    cell.appendChild(bubble);
+    return cell;
+}
+
+function createNotesCell(user) {
+    const cell = document.createElement('td');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = user.notes || '';
+    input.className = 'notes-input';
+    input.placeholder = 'Add notes...';
+    input.dataset.field = 'notes';
+    input.dataset.recordName = user.recordName;
+
+    let debounceTimer;
+    input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        input.classList.add('saving');
+        debounceTimer = setTimeout(() => saveField(user.recordName, 'notes', input.value), 500);
+    });
+
+    cell.appendChild(input);
     return cell;
 }
 
@@ -561,6 +636,7 @@ async function refreshData() {
                     existingUser.channelAssignments = record.fields.channelAssignments ? record.fields.channelAssignments.value : [];
                     existingUser.department = record.fields.department ? record.fields.department.value : '';
                     existingUser.headsetType = record.fields.headsetType ? record.fields.headsetType.value : 'Single Ear';
+                    existingUser.notes = record.fields.notes ? record.fields.notes.value : '';
                     existingUser.recordChangeTag = record.recordChangeTag;
                     hasChanges = true;
                 }

@@ -66,6 +66,15 @@
             </header>
 
             <main>
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label for="dept-filter">Department:</label>
+                        <select id="dept-filter">
+                            <option value="">All Departments</option>
+                        </select>
+                    </div>
+                    <span id="user-count" class="user-count"></span>
+                </div>
                 <div class="table-container">
                     <table id="users-table">
                         <thead>
@@ -76,6 +85,7 @@
                                 <th class="col-username">Username</th>
                                 <th class="col-dept">Dept</th>
                                 <th class="col-headset">Headset</th>
+                                <th class="col-notes">Notes</th>
                                 <th id="channel-headers" colspan="6">Channels</th>
                             </tr>
                         </thead>
