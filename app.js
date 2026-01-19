@@ -245,6 +245,9 @@ async function loadSharedData() {
     }
 }
 
+// Current filter state
+let currentDeptFilter = '';
+
 function renderEditor() {
     document.getElementById('show-title').textContent = state.showData.name;
     updateSyncStatus('synced');
@@ -255,14 +258,7 @@ function renderEditor() {
     headerCell.colSpan = channelCount;
     headerCell.textContent = `Channels`;
 
-    // Set up department filter event listener (only once)
-    const filterSelect = document.getElementById('dept-filter');
-    if (!filterSelect.hasAttribute('data-listener-added')) {
-        filterSelect.addEventListener('change', renderUsers);
-        filterSelect.setAttribute('data-listener-added', 'true');
-    }
-
-    // Populate department filter
+    // Populate department filter buttons
     populateDepartmentFilter();
 
     // Render users (with filter applied)
@@ -270,37 +266,51 @@ function renderEditor() {
 }
 
 function populateDepartmentFilter() {
-    const filterSelect = document.getElementById('dept-filter');
-    const currentValue = filterSelect.value;
+    const container = document.getElementById('dept-filter-buttons');
+    container.innerHTML = '';
 
-    // Clear existing options except "All"
-    filterSelect.innerHTML = '<option value="">All Departments</option>';
+    // "All" button
+    const allBtn = document.createElement('button');
+    allBtn.className = 'filter-btn' + (currentDeptFilter === '' ? ' active' : '');
+    allBtn.textContent = 'All';
+    allBtn.addEventListener('click', () => {
+        currentDeptFilter = '';
+        populateDepartmentFilter();
+        renderUsers();
+    });
+    container.appendChild(allBtn);
 
     // Get unique departments from users
     const departments = [...new Set(state.users.map(u => u.department).filter(d => d))].sort();
 
     departments.forEach(dept => {
-        const option = document.createElement('option');
-        option.value = dept;
-        option.textContent = dept;
-        filterSelect.appendChild(option);
-    });
+        const btn = document.createElement('button');
+        btn.className = 'filter-btn' + (currentDeptFilter === dept ? ' active' : '');
+        btn.textContent = dept;
 
-    // Restore selection if still valid
-    if (departments.includes(currentValue)) {
-        filterSelect.value = currentValue;
-    }
+        // Apply department color if available
+        const color = getDepartmentColor(dept);
+        if (color) {
+            btn.classList.add('has-color');
+            btn.style.backgroundColor = color;
+        }
+
+        btn.addEventListener('click', () => {
+            currentDeptFilter = dept;
+            populateDepartmentFilter();
+            renderUsers();
+        });
+        container.appendChild(btn);
+    });
 }
 
 function renderUsers() {
     const tbody = document.getElementById('users-body');
     tbody.innerHTML = '';
 
-    const filterValue = document.getElementById('dept-filter').value;
-
     let filteredUsers = state.users;
-    if (filterValue) {
-        filteredUsers = state.users.filter(u => u.department === filterValue);
+    if (currentDeptFilter) {
+        filteredUsers = state.users.filter(u => u.department === currentDeptFilter);
     }
 
     filteredUsers.forEach(user => {
@@ -310,8 +320,8 @@ function renderUsers() {
 
     // Update user count
     const countEl = document.getElementById('user-count');
-    if (filterValue) {
-        countEl.textContent = `Showing ${filteredUsers.length} of ${state.users.length} users`;
+    if (currentDeptFilter) {
+        countEl.textContent = `Showing ${filteredUsers.length} of ${state.users.length}`;
     } else {
         countEl.textContent = `${state.users.length} users`;
     }

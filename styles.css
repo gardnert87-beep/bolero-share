@@ -243,31 +243,44 @@ main {
     border: 1px solid var(--border);
 }
 
-.filter-group {
+.filter-buttons {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
-.filter-group label {
+.filter-btn {
+    padding: 5px 12px;
+    border-radius: 16px;
     font-size: 12px;
-    color: var(--text-secondary);
-}
-
-.filter-group select {
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px 10px;
-    color: var(--text-primary);
-    font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
-    outline: none;
-    min-width: 150px;
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    transition: all 0.15s;
 }
 
-.filter-group select:focus {
+.filter-btn:hover {
+    background: var(--bg-input);
+    color: var(--text-primary);
+}
+
+.filter-btn.active {
+    background: var(--accent);
     border-color: var(--accent);
+    color: white;
+}
+
+.filter-btn.has-color {
+    color: white;
+    border-color: transparent;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.filter-btn.has-color.active {
+    box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px currentColor;
 }
 
 .user-count {
@@ -305,12 +318,12 @@ th {
 }
 
 .col-bp { width: 40px; text-align: center; }
-.col-name { width: 100px; }
+.col-name { width: 140px; }
 .col-username { width: 90px; }
 .col-dept { width: 80px; text-align: center; }
 .col-headset { width: 45px; text-align: center; }
 .col-notes { width: 400px; }
-.col-channel { width: 50px; text-align: center; }
+.col-channel { width: auto; text-align: center; white-space: nowrap; }
 
 td {
     font-size: 13px;
@@ -443,20 +456,20 @@ td input.notes-input::placeholder {
 
 /* Channel cells with color bubble */
 .channel-cell {
-    padding: 1px 0;
+    padding: 2px 1px;
     text-align: center;
 }
 
 .channel-bubble {
     display: inline-block;
-    padding: 3px 8px;
+    padding: 3px 6px;
     border-radius: 10px;
     font-size: 11px;
     font-weight: 500;
     text-align: center;
-    min-width: 40px;
     cursor: pointer;
     transition: opacity 0.15s;
+    white-space: nowrap;
 }
 
 .channel-bubble:hover {
