@@ -775,15 +775,23 @@ async function handleSaveConflict(user, field, value) {
 
 async function saveChannelAssignment(recordName, index, channel) {
     updateSyncStatus('syncing');
+    console.log('SAVE: Starting channel save for', recordName, 'index', index, 'channel', channel);
 
     try {
         const user = state.users.find(u => u.recordName === recordName);
-        if (!user) return;
+        if (!user) {
+            console.error('SAVE: User not found for recordName', recordName);
+            return;
+        }
+
+        console.log('SAVE: Current channelAssignments before update:', JSON.stringify(user.channelAssignments));
 
         while (user.channelAssignments.length <= index) {
             user.channelAssignments.push('');
         }
         user.channelAssignments[index] = channel;
+
+        console.log('SAVE: Updated channelAssignments:', JSON.stringify(user.channelAssignments));
 
         const recordToSave = {
             recordType: 'SharedUser',
@@ -795,11 +803,15 @@ async function saveChannelAssignment(recordName, index, channel) {
             }
         };
 
+        console.log('SAVE: Saving record to CloudKit:', JSON.stringify(recordToSave));
+
         const response = await database.saveRecords([recordToSave]);
+
+        console.log('SAVE: CloudKit response:', JSON.stringify(response));
 
         // Check for errors in response
         if (response.hasErrors) {
-            console.error('CloudKit save errors:', response.errors);
+            console.error('SAVE: CloudKit save errors:', response.errors);
             // Try to refetch and retry on conflict
             await handleChannelSaveConflict(user, user.channelAssignments);
             return;
@@ -807,14 +819,16 @@ async function saveChannelAssignment(recordName, index, channel) {
 
         if (response.records && response.records.length > 0) {
             user.recordChangeTag = response.records[0].recordChangeTag;
+            console.log('SAVE: Updated recordChangeTag to', user.recordChangeTag);
         }
 
         state.lastUpdated = new Date();
         updateSyncStatus('synced');
         updateLastUpdated();
+        console.log('SAVE: Save completed successfully');
 
     } catch (error) {
-        console.error('Error saving channel assignment:', error);
+        console.error('SAVE: Error saving channel assignment:', error);
         updateSyncStatus('error');
         setTimeout(() => updateSyncStatus('synced'), 3000);
     }
