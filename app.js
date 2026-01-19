@@ -4,7 +4,7 @@
 const CONFIG = {
     containerIdentifier: 'iCloud.com.TomGardner.BoleroManager',
     apiToken: 'bfdc86e315b19a4681a21bb4b952a3cdc4d45c654c26afe93edea018e9db72d7',
-    environment: 'production',
+    environment: 'development',
     refreshInterval: 5000 // 5 seconds
 };
 
