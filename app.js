@@ -42,6 +42,8 @@ let state = {
     departments: [],
     channelColors: {},
     departmentColors: {},
+    shareName: '',
+    editableDepartments: [],  // Empty array means all departments editable
     isAuthenticated: false,
     isSyncing: false,
     lastUpdated: null
@@ -182,6 +184,10 @@ async function loadSharedData() {
                 channelSlotCount: showRecord.fields.channelSlotCount ? showRecord.fields.channelSlotCount.value : 6
             };
 
+            // Load share name and editable departments
+            state.shareName = showRecord.fields.shareName ? showRecord.fields.shareName.value : '';
+            state.editableDepartments = showRecord.fields.editableDepartments ? showRecord.fields.editableDepartments.value : [];
+
             if (showRecord.fields.channelColorsJSON && showRecord.fields.channelColorsJSON.value) {
                 try {
                     state.channelColors = JSON.parse(showRecord.fields.channelColorsJSON.value);
@@ -248,8 +254,25 @@ async function loadSharedData() {
 // Current filter state
 let currentDeptFilter = '';
 
+function canEditDepartment(department) {
+    // Empty array means all departments are editable
+    if (!state.editableDepartments || state.editableDepartments.length === 0) {
+        return true;
+    }
+    return state.editableDepartments.includes(department);
+}
+
 function renderEditor() {
-    document.getElementById('show-title').textContent = state.showData.name;
+    // Display show name with optional share name
+    let titleText = state.showData.name;
+    if (state.shareName) {
+        titleText = `${state.shareName} (${state.showData.name})`;
+    }
+    document.getElementById('show-title').textContent = titleText;
+
+    // Show edit permissions info if restricted
+    updateEditPermissionsInfo();
+
     updateSyncStatus('synced');
     updateLastUpdated();
 
@@ -331,40 +354,52 @@ function createUserRow(user) {
     const row = document.createElement('tr');
     row.dataset.recordName = user.recordName;
 
-    // BP#
+    // Check if this user's department is editable
+    const isEditable = canEditDepartment(user.department);
+
+    // Add view-only class if not editable
+    if (!isEditable) {
+        row.classList.add('view-only');
+    }
+
+    // BP# with lock indicator for view-only
     const bpCell = document.createElement('td');
     bpCell.className = 'bp-cell';
-    bpCell.textContent = user.beltpackNumber || '--';
+    if (!isEditable) {
+        bpCell.innerHTML = `<span class="lock-indicator">🔒</span>${user.beltpackNumber || '--'}`;
+    } else {
+        bpCell.textContent = user.beltpackNumber || '--';
+    }
     row.appendChild(bpCell);
 
     // First Name
-    row.appendChild(createEditableCell(user, 'firstName', user.firstName));
+    row.appendChild(createEditableCell(user, 'firstName', user.firstName, false, isEditable));
 
     // Last Name
-    row.appendChild(createEditableCell(user, 'lastName', user.lastName));
+    row.appendChild(createEditableCell(user, 'lastName', user.lastName, false, isEditable));
 
     // Username (nickname)
-    row.appendChild(createEditableCell(user, 'nickname', user.nickname, true));
+    row.appendChild(createEditableCell(user, 'nickname', user.nickname, true, isEditable));
 
     // Department
     row.appendChild(createDepartmentCell(user));
 
     // Headset (icon with hidden select)
-    row.appendChild(createHeadsetCell(user));
+    row.appendChild(createHeadsetCell(user, isEditable));
 
     // Channel assignments
     const channelCount = state.showData.channelSlotCount || 6;
     for (let i = 0; i < channelCount; i++) {
-        row.appendChild(createChannelCell(user, i));
+        row.appendChild(createChannelCell(user, i, isEditable));
     }
 
     // Notes (far right)
-    row.appendChild(createNotesCell(user));
+    row.appendChild(createNotesCell(user, isEditable));
 
     return row;
 }
 
-function createEditableCell(user, field, value, isUsername = false) {
+function createEditableCell(user, field, value, isUsername = false, isEditable = true) {
     const cell = document.createElement('td');
     const input = document.createElement('input');
     input.type = 'text';
@@ -377,12 +412,17 @@ function createEditableCell(user, field, value, isUsername = false) {
         input.placeholder = '.USERNAME';
     }
 
-    let debounceTimer;
-    input.addEventListener('input', () => {
-        clearTimeout(debounceTimer);
-        input.classList.add('saving');
-        debounceTimer = setTimeout(() => saveField(user.recordName, field, input.value), 500);
-    });
+    if (!isEditable) {
+        input.readOnly = true;
+        input.classList.add('readonly');
+    } else {
+        let debounceTimer;
+        input.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            input.classList.add('saving');
+            debounceTimer = setTimeout(() => saveField(user.recordName, field, input.value), 500);
+        });
+    }
 
     cell.appendChild(input);
     return cell;
@@ -437,6 +477,18 @@ function getDepartmentColor(department) {
     return null;
 }
 
+function updateEditPermissionsInfo() {
+    const infoEl = document.getElementById('edit-permissions-info');
+    if (!infoEl) return;
+
+    if (state.editableDepartments && state.editableDepartments.length > 0) {
+        infoEl.innerHTML = `<span class="lock-icon">🔒</span> Edit access: ${state.editableDepartments.join(', ')} only`;
+        infoEl.classList.remove('hidden');
+    } else {
+        infoEl.classList.add('hidden');
+    }
+}
+
 function showDebugInfo() {
     const debugEl = document.getElementById('debug-info');
     const channelCount = Object.keys(state.channelColors).length;
@@ -455,32 +507,44 @@ function showDebugInfo() {
         info += `\n⚠️ No department colors found - try creating a new share from the app`;
     }
 
+    // Add edit permissions info
+    if (state.editableDepartments && state.editableDepartments.length > 0) {
+        info += `\nEditable departments: ${state.editableDepartments.join(', ')}`;
+    } else {
+        info += `\nAll departments editable`;
+    }
+
     debugEl.textContent = info;
     debugEl.classList.remove('hidden');
 }
 
-function createNotesCell(user) {
+function createNotesCell(user, isEditable = true) {
     const cell = document.createElement('td');
     const input = document.createElement('input');
     input.type = 'text';
     input.value = user.notes || '';
     input.className = 'notes-input';
-    input.placeholder = 'Add notes...';
+    input.placeholder = isEditable ? 'Add notes...' : '';
     input.dataset.field = 'notes';
     input.dataset.recordName = user.recordName;
 
-    let debounceTimer;
-    input.addEventListener('input', () => {
-        clearTimeout(debounceTimer);
-        input.classList.add('saving');
-        debounceTimer = setTimeout(() => saveField(user.recordName, 'notes', input.value), 500);
-    });
+    if (!isEditable) {
+        input.readOnly = true;
+        input.classList.add('readonly');
+    } else {
+        let debounceTimer;
+        input.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            input.classList.add('saving');
+            debounceTimer = setTimeout(() => saveField(user.recordName, 'notes', input.value), 500);
+        });
+    }
 
     cell.appendChild(input);
     return cell;
 }
 
-function createHeadsetCell(user) {
+function createHeadsetCell(user, isEditable = true) {
     const cell = document.createElement('td');
     cell.className = 'headset-cell';
 
@@ -493,31 +557,36 @@ function createHeadsetCell(user) {
     iconSpan.innerHTML = HEADSET_TYPES[user.headsetType] || HEADSET_TYPES['Single Ear'];
     wrapper.appendChild(iconSpan);
 
-    // Hidden select
-    const select = document.createElement('select');
-    select.dataset.recordName = user.recordName;
+    if (isEditable) {
+        // Hidden select (only if editable)
+        const select = document.createElement('select');
+        select.dataset.recordName = user.recordName;
 
-    Object.keys(HEADSET_TYPES).forEach(type => {
-        const option = document.createElement('option');
-        option.value = type;
-        option.textContent = type;
-        select.appendChild(option);
-    });
+        Object.keys(HEADSET_TYPES).forEach(type => {
+            const option = document.createElement('option');
+            option.value = type;
+            option.textContent = type;
+            select.appendChild(option);
+        });
 
-    select.value = user.headsetType || 'Single Ear';
+        select.value = user.headsetType || 'Single Ear';
 
-    select.addEventListener('change', () => {
-        iconSpan.innerHTML = HEADSET_TYPES[select.value];
-        wrapper.title = select.value;
-        saveField(user.recordName, 'headsetType', select.value);
-    });
+        select.addEventListener('change', () => {
+            iconSpan.innerHTML = HEADSET_TYPES[select.value];
+            wrapper.title = select.value;
+            saveField(user.recordName, 'headsetType', select.value);
+        });
 
-    wrapper.appendChild(select);
+        wrapper.appendChild(select);
+    } else {
+        wrapper.classList.add('readonly');
+    }
+
     cell.appendChild(wrapper);
     return cell;
 }
 
-function createChannelCell(user, index) {
+function createChannelCell(user, index, isEditable = true) {
     const cell = document.createElement('td');
     cell.className = 'channel-cell';
 
@@ -531,38 +600,44 @@ function createChannelCell(user, index) {
     bubble.className = 'channel-bubble';
     updateChannelBubble(bubble, currentChannel);
 
-    // Hidden select
-    const select = document.createElement('select');
-    select.dataset.recordName = user.recordName;
-    select.dataset.channelIndex = index;
+    if (isEditable) {
+        // Hidden select (only if editable)
+        const select = document.createElement('select');
+        select.dataset.recordName = user.recordName;
+        select.dataset.channelIndex = index;
 
-    const emptyOption = document.createElement('option');
-    emptyOption.value = '';
-    emptyOption.textContent = '--';
-    select.appendChild(emptyOption);
+        const emptyOption = document.createElement('option');
+        emptyOption.value = '';
+        emptyOption.textContent = '--';
+        select.appendChild(emptyOption);
 
-    state.showData.channels.forEach(channel => {
-        const option = document.createElement('option');
-        option.value = channel;
-        option.textContent = channel;
-        // Add color to option if available
-        const color = state.channelColors[channel.toUpperCase()];
-        if (color) {
-            option.style.backgroundColor = color;
-            option.style.color = 'white';
-        }
-        select.appendChild(option);
-    });
+        state.showData.channels.forEach(channel => {
+            const option = document.createElement('option');
+            option.value = channel;
+            option.textContent = channel;
+            // Add color to option if available
+            const color = state.channelColors[channel.toUpperCase()];
+            if (color) {
+                option.style.backgroundColor = color;
+                option.style.color = 'white';
+            }
+            select.appendChild(option);
+        });
 
-    select.value = currentChannel;
+        select.value = currentChannel;
 
-    select.addEventListener('change', () => {
-        updateChannelBubble(bubble, select.value);
-        saveChannelAssignment(user.recordName, index, select.value);
-    });
+        select.addEventListener('change', () => {
+            updateChannelBubble(bubble, select.value);
+            saveChannelAssignment(user.recordName, index, select.value);
+        });
+
+        wrapper.appendChild(select);
+    } else {
+        wrapper.classList.add('readonly');
+        bubble.style.cursor = 'default';
+    }
 
     wrapper.appendChild(bubble);
-    wrapper.appendChild(select);
     cell.appendChild(wrapper);
     return cell;
 }

@@ -405,6 +405,60 @@ td input.notes-input::placeholder {
     100% { background: transparent; }
 }
 
+/* Readonly/view-only styling */
+td input.readonly {
+    color: var(--text-muted);
+    cursor: default;
+}
+
+td input.readonly:hover {
+    background: transparent;
+}
+
+tr.view-only {
+    opacity: 0.8;
+}
+
+tr.view-only td {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.lock-indicator {
+    font-size: 10px;
+    margin-right: 4px;
+    opacity: 0.6;
+}
+
+.headset-icon-wrapper.readonly {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.channel-select-wrapper.readonly {
+    cursor: default;
+}
+
+.channel-select-wrapper.readonly .channel-bubble {
+    opacity: 0.7;
+}
+
+/* Edit permissions info */
+#edit-permissions-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--warning);
+    padding: 4px 10px;
+    background: rgba(255, 159, 10, 0.1);
+    border-radius: 12px;
+    margin-left: 12px;
+}
+
+#edit-permissions-info .lock-icon {
+    font-size: 12px;
+}
+
 /* Department bubble (colored like channels) */
 .dept-cell {
     text-align: center;
