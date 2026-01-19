@@ -116,16 +116,23 @@ async function initCloudKit() {
 }
 
 async function signInToCloudKit() {
+    console.log('CloudKit: Attempting sign in...');
     try {
+        // This triggers the Apple ID sign-in popup
         const userIdentity = await cloudKit.whenUserSignsIn();
+        console.log('CloudKit: Sign in response:', userIdentity);
         if (userIdentity) {
             state.isCloudKitAuthenticated = true;
-            console.log('CloudKit: Signed in successfully');
+            console.log('CloudKit: Signed in successfully as', userIdentity.nameComponents?.givenName || 'user');
             updateSignInStatus();
+            // Hide any open sign-in modals
+            const modal = document.getElementById('sign-in-modal');
+            if (modal) modal.classList.add('hidden');
             return true;
         }
     } catch (error) {
         console.error('CloudKit sign in error:', error);
+        alert('Sign in failed. Please try again.\n\nError: ' + (error.message || error._reason || 'Unknown error'));
     }
     return false;
 }
@@ -133,21 +140,29 @@ async function signInToCloudKit() {
 function updateSignInStatus() {
     const signInBtn = document.getElementById('sign-in-btn');
     const signInStatus = document.getElementById('sign-in-status');
+    const signInBanner = document.getElementById('sign-in-banner');
 
-    if (signInBtn) {
-        if (state.isCloudKitAuthenticated) {
-            signInBtn.classList.add('hidden');
-            if (signInStatus) {
-                signInStatus.textContent = '✓ Signed in - editing enabled';
-                signInStatus.className = 'sign-in-status signed-in';
-            }
-        } else {
-            signInBtn.classList.remove('hidden');
-            if (signInStatus) {
-                signInStatus.textContent = 'Sign in to enable editing';
-                signInStatus.className = 'sign-in-status not-signed-in';
-            }
+    if (state.isCloudKitAuthenticated) {
+        // Signed in - hide sign-in prompts
+        if (signInBtn) signInBtn.classList.add('hidden');
+        if (signInBanner) signInBanner.classList.add('hidden');
+        if (signInStatus) {
+            signInStatus.textContent = '✓ Signed in - editing enabled';
+            signInStatus.className = 'sign-in-status signed-in';
         }
+    } else {
+        // Not signed in - show sign-in prompts
+        if (signInBtn) signInBtn.classList.remove('hidden');
+        if (signInBanner) signInBanner.classList.remove('hidden');
+        if (signInStatus) {
+            signInStatus.textContent = 'Sign in to edit';
+            signInStatus.className = 'sign-in-status not-signed-in';
+        }
+    }
+
+    // Re-render the editor to update editable state of all fields
+    if (state.showData && state.users.length > 0) {
+        renderUsers();
     }
 }
 
@@ -306,6 +321,10 @@ async function loadSharedData() {
 let currentDeptFilter = '';
 
 function canEditDepartment(department) {
+    // Must be signed in to CloudKit to edit anything
+    if (!state.isCloudKitAuthenticated) {
+        return false;
+    }
     // Empty array means all departments are editable
     if (!state.editableDepartments || state.editableDepartments.length === 0) {
         return true;
@@ -324,10 +343,14 @@ function renderEditor() {
     // Show edit permissions info if restricted
     updateEditPermissionsInfo();
 
-    // Setup sign-in button handler
+    // Setup sign-in button handlers
     const signInBtn = document.getElementById('sign-in-btn');
     if (signInBtn) {
         signInBtn.onclick = () => signInToCloudKit();
+    }
+    const bannerSignInBtn = document.getElementById('banner-sign-in-btn');
+    if (bannerSignInBtn) {
+        bannerSignInBtn.onclick = () => signInToCloudKit();
     }
     updateSignInStatus();
 
@@ -433,12 +456,23 @@ function createUserRow(user) {
     const row = document.createElement('tr');
     row.dataset.recordName = user.recordName;
 
-    // Check if this user's department is editable
+    // Check if this user's department is editable (also checks CloudKit auth)
     const isEditable = canEditDepartment(user.department);
 
     // Add view-only class if not editable
     if (!isEditable) {
         row.classList.add('view-only');
+
+        // If not signed in, clicking the row prompts sign-in
+        if (!state.isCloudKitAuthenticated) {
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', (e) => {
+                // Don't trigger if clicking on a link or button
+                if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
+                    showSignInPrompt();
+                }
+            });
+        }
     }
 
     // BP# with lock indicator for view-only
