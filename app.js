@@ -5,32 +5,11 @@ const CONFIG = {
     containerIdentifier: 'iCloud.com.TomGardner.BoleroManager',
     apiToken: 'bfdc86e315b19a4681a21bb4b952a3cdc4d45c654c26afe93edea018e9db72d7',
     environment: 'development',
-    refreshInterval: 5000 // 5 seconds
+    refreshInterval: 5000
 };
 
-// Headset type icons (SVG paths)
-const HEADSET_ICONS = {
-    'Single Ear': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
-        <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5z" opacity="0.3"/>
-        <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5z"/>
-    </svg>`,
-    'Dual Ear': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
-        <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5z"/>
-        <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5z"/>
-    </svg>`,
-    'In-Ear': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="8" cy="12" r="3"/>
-        <circle cx="16" cy="12" r="3"/>
-        <path d="M8 9V6M16 9V6"/>
-    </svg>`,
-    'Custom': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-        <line x1="12" y1="17" x2="12.01" y2="17"/>
-    </svg>`
-};
+// Headset types
+const HEADSET_TYPES = ['Single Ear', 'Dual Ear', 'In-Ear', 'Custom'];
 
 // State
 let state = {
@@ -172,7 +151,6 @@ async function loadSharedData() {
     showView('loading');
 
     try {
-        // Fetch show data
         const showResponse = await database.fetchRecords([`${state.shareID}_show`]);
         if (showResponse.records && showResponse.records.length > 0) {
             const showRecord = showResponse.records[0];
@@ -183,7 +161,6 @@ async function loadSharedData() {
                 channelSlotCount: showRecord.fields.channelSlotCount ? showRecord.fields.channelSlotCount.value : 6
             };
 
-            // Parse channel colors
             if (showRecord.fields.channelColorsJSON && showRecord.fields.channelColorsJSON.value) {
                 try {
                     state.channelColors = JSON.parse(showRecord.fields.channelColorsJSON.value);
@@ -192,7 +169,6 @@ async function loadSharedData() {
                 }
             }
 
-            // Parse department colors
             if (showRecord.fields.departmentColorsJSON && showRecord.fields.departmentColorsJSON.value) {
                 try {
                     state.departmentColors = JSON.parse(showRecord.fields.departmentColorsJSON.value);
@@ -202,7 +178,6 @@ async function loadSharedData() {
             }
         }
 
-        // Fetch users
         const query = {
             recordType: 'SharedUser',
             filterBy: [{
@@ -286,7 +261,7 @@ function createUserRow(user) {
     // Department
     row.appendChild(createDepartmentCell(user));
 
-    // Headset
+    // Headset (editable)
     row.appendChild(createHeadsetCell(user));
 
     // Channel assignments
@@ -329,7 +304,6 @@ function createDepartmentCell(user) {
         const badge = document.createElement('span');
         badge.className = 'dept-badge';
 
-        // Check for department color
         const color = state.departmentColors[user.department];
         if (color) {
             const dot = document.createElement('span');
@@ -353,17 +327,25 @@ function createDepartmentCell(user) {
 
 function createHeadsetCell(user) {
     const cell = document.createElement('td');
-    cell.className = 'headset-cell';
 
-    const wrapper = document.createElement('span');
-    wrapper.className = 'headset-icon';
+    const select = document.createElement('select');
+    select.className = 'headset-select';
+    select.dataset.recordName = user.recordName;
 
-    const iconSvg = HEADSET_ICONS[user.headsetType] || HEADSET_ICONS['Single Ear'];
-    wrapper.innerHTML = iconSvg;
+    HEADSET_TYPES.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        select.appendChild(option);
+    });
 
-    cell.appendChild(wrapper);
-    cell.title = user.headsetType;
+    select.value = user.headsetType || 'Single Ear';
 
+    select.addEventListener('change', () => {
+        saveField(user.recordName, 'headsetType', select.value);
+    });
+
+    cell.appendChild(select);
     return cell;
 }
 
@@ -374,11 +356,14 @@ function createChannelCell(user, index) {
     const wrapper = document.createElement('div');
     wrapper.className = 'channel-select-wrapper';
 
-    const colorDot = document.createElement('div');
-    colorDot.className = 'channel-color-dot';
     const currentChannel = user.channelAssignments[index] || '';
-    updateColorDot(colorDot, currentChannel);
 
+    // Create the bubble
+    const bubble = document.createElement('span');
+    bubble.className = 'channel-bubble';
+    updateChannelBubble(bubble, currentChannel);
+
+    // Hidden select
     const select = document.createElement('select');
     select.dataset.recordName = user.recordName;
     select.dataset.channelIndex = index;
@@ -398,25 +383,33 @@ function createChannelCell(user, index) {
     select.value = currentChannel;
 
     select.addEventListener('change', () => {
-        updateColorDot(colorDot, select.value);
+        updateChannelBubble(bubble, select.value);
         saveChannelAssignment(user.recordName, index, select.value);
     });
 
-    wrapper.appendChild(colorDot);
+    wrapper.appendChild(bubble);
     wrapper.appendChild(select);
     cell.appendChild(wrapper);
     return cell;
 }
 
-function updateColorDot(dot, channelName) {
-    if (channelName && state.channelColors[channelName.toUpperCase()]) {
-        dot.style.backgroundColor = state.channelColors[channelName.toUpperCase()];
-        dot.style.display = 'block';
-    } else if (channelName) {
-        dot.style.backgroundColor = '#555';
-        dot.style.display = 'block';
+function updateChannelBubble(bubble, channelName) {
+    bubble.className = 'channel-bubble';
+
+    if (!channelName) {
+        bubble.classList.add('empty');
+        bubble.textContent = '--';
+        bubble.style.backgroundColor = '';
     } else {
-        dot.style.display = 'none';
+        const color = state.channelColors[channelName.toUpperCase()];
+        if (color) {
+            bubble.classList.add('has-color');
+            bubble.style.backgroundColor = color;
+        } else {
+            bubble.classList.add('no-color');
+            bubble.style.backgroundColor = '';
+        }
+        bubble.textContent = channelName;
     }
 }
 
