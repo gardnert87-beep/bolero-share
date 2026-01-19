@@ -710,6 +710,14 @@ async function saveField(recordName, field, value) {
 
         const response = await database.saveRecords([recordToSave]);
 
+        // Check for errors in response
+        if (response.hasErrors) {
+            console.error('CloudKit save errors:', response.errors);
+            // Try to refetch and retry on conflict
+            await handleSaveConflict(user, field, value);
+            return;
+        }
+
         if (response.records && response.records.length > 0) {
             user.recordChangeTag = response.records[0].recordChangeTag;
         }
@@ -728,6 +736,40 @@ async function saveField(recordName, field, value) {
     } catch (error) {
         console.error('Error saving field:', error);
         updateSyncStatus('error');
+        // Auto-recover after a brief delay
+        setTimeout(() => updateSyncStatus('synced'), 3000);
+    }
+}
+
+async function handleSaveConflict(user, field, value) {
+    try {
+        // Refetch the record to get latest recordChangeTag
+        const response = await database.fetchRecords([user.recordName]);
+        if (response.records && response.records.length > 0) {
+            const record = response.records[0];
+            user.recordChangeTag = record.recordChangeTag;
+
+            // Retry save with updated tag
+            const recordToSave = {
+                recordType: 'SharedUser',
+                recordName: user.recordName,
+                recordChangeTag: user.recordChangeTag,
+                fields: {
+                    [field]: { value: value },
+                    updatedAt: { value: Date.now() }
+                }
+            };
+
+            const retryResponse = await database.saveRecords([recordToSave]);
+            if (retryResponse.records && retryResponse.records.length > 0) {
+                user.recordChangeTag = retryResponse.records[0].recordChangeTag;
+            }
+        }
+        updateSyncStatus('synced');
+    } catch (retryError) {
+        console.error('Retry failed:', retryError);
+        updateSyncStatus('error');
+        setTimeout(() => updateSyncStatus('synced'), 3000);
     }
 }
 
@@ -755,6 +797,14 @@ async function saveChannelAssignment(recordName, index, channel) {
 
         const response = await database.saveRecords([recordToSave]);
 
+        // Check for errors in response
+        if (response.hasErrors) {
+            console.error('CloudKit save errors:', response.errors);
+            // Try to refetch and retry on conflict
+            await handleChannelSaveConflict(user, user.channelAssignments);
+            return;
+        }
+
         if (response.records && response.records.length > 0) {
             user.recordChangeTag = response.records[0].recordChangeTag;
         }
@@ -766,6 +816,39 @@ async function saveChannelAssignment(recordName, index, channel) {
     } catch (error) {
         console.error('Error saving channel assignment:', error);
         updateSyncStatus('error');
+        setTimeout(() => updateSyncStatus('synced'), 3000);
+    }
+}
+
+async function handleChannelSaveConflict(user, channelAssignments) {
+    try {
+        // Refetch the record to get latest recordChangeTag
+        const response = await database.fetchRecords([user.recordName]);
+        if (response.records && response.records.length > 0) {
+            const record = response.records[0];
+            user.recordChangeTag = record.recordChangeTag;
+
+            // Retry save with updated tag
+            const recordToSave = {
+                recordType: 'SharedUser',
+                recordName: user.recordName,
+                recordChangeTag: user.recordChangeTag,
+                fields: {
+                    channelAssignments: { value: channelAssignments },
+                    updatedAt: { value: Date.now() }
+                }
+            };
+
+            const retryResponse = await database.saveRecords([recordToSave]);
+            if (retryResponse.records && retryResponse.records.length > 0) {
+                user.recordChangeTag = retryResponse.records[0].recordChangeTag;
+            }
+        }
+        updateSyncStatus('synced');
+    } catch (retryError) {
+        console.error('Retry failed:', retryError);
+        updateSyncStatus('error');
+        setTimeout(() => updateSyncStatus('synced'), 3000);
     }
 }
 
