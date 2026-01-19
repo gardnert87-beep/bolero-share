@@ -890,3 +890,14 @@ footer {
 #sign-in-btn:hover {
     background: var(--accent-hover);
 }
+
+/* Login note */
+.login-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-top: 12px;
+    border-left: 3px solid var(--accent);
+}
