@@ -15,6 +15,7 @@ let state = {
     showData: null,
     users: [],
     channels: [],
+    channelColors: {}, // Channel name -> hex color
     isAuthenticated: false,
     isSyncing: false,
     lastUpdated: null
@@ -167,6 +168,16 @@ async function loadSharedData() {
                 channels: showRecord.fields.channels ? showRecord.fields.channels.value : [],
                 channelSlotCount: showRecord.fields.channelSlotCount ? showRecord.fields.channelSlotCount.value : 6
             };
+
+            // Parse channel colors if available
+            if (showRecord.fields.channelColorsJSON && showRecord.fields.channelColorsJSON.value) {
+                try {
+                    state.channelColors = JSON.parse(showRecord.fields.channelColorsJSON.value);
+                } catch (e) {
+                    console.warn('Failed to parse channel colors:', e);
+                    state.channelColors = {};
+                }
+            }
         }
 
         // Fetch users
@@ -252,20 +263,8 @@ function createUserRow(user) {
     // Last Name
     row.appendChild(createEditableCell(user, 'lastName', user.lastName));
 
-    // Nickname
-    row.appendChild(createEditableCell(user, 'nickname', user.nickname));
-
-    // Department (read-only)
-    const deptCell = document.createElement('td');
-    deptCell.textContent = user.department || '--';
-    deptCell.style.color = 'var(--text-secondary)';
-    row.appendChild(deptCell);
-
-    // Role (read-only)
-    const roleCell = document.createElement('td');
-    roleCell.textContent = user.role || '--';
-    roleCell.style.color = 'var(--text-secondary)';
-    row.appendChild(roleCell);
+    // Username (nickname)
+    row.appendChild(createEditableCell(user, 'nickname', user.nickname, true));
 
     // Channel assignments
     const channelCount = state.showData.channelSlotCount || 6;
@@ -276,13 +275,18 @@ function createUserRow(user) {
     return row;
 }
 
-function createEditableCell(user, field, value) {
+function createEditableCell(user, field, value, isUsername = false) {
     const cell = document.createElement('td');
     const input = document.createElement('input');
     input.type = 'text';
     input.value = value || '';
     input.dataset.field = field;
     input.dataset.recordName = user.recordName;
+
+    if (isUsername) {
+        input.className = 'username-input';
+        input.placeholder = '.USERNAME';
+    }
 
     let debounceTimer;
     input.addEventListener('input', () => {
@@ -298,6 +302,15 @@ function createEditableCell(user, field, value) {
 function createChannelCell(user, index) {
     const cell = document.createElement('td');
     cell.className = 'channel-cell';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'channel-select-wrapper';
+
+    // Color dot
+    const colorDot = document.createElement('div');
+    colorDot.className = 'channel-color-dot';
+    const currentChannel = user.channelAssignments[index] || '';
+    updateColorDot(colorDot, currentChannel);
 
     const select = document.createElement('select');
     select.dataset.recordName = user.recordName;
@@ -318,15 +331,30 @@ function createChannelCell(user, index) {
     });
 
     // Set current value
-    const currentChannel = user.channelAssignments[index] || '';
     select.value = currentChannel;
 
     select.addEventListener('change', () => {
+        updateColorDot(colorDot, select.value);
         saveChannelAssignment(user.recordName, index, select.value);
     });
 
-    cell.appendChild(select);
+    wrapper.appendChild(colorDot);
+    wrapper.appendChild(select);
+    cell.appendChild(wrapper);
     return cell;
+}
+
+function updateColorDot(dot, channelName) {
+    if (channelName && state.channelColors[channelName.toUpperCase()]) {
+        dot.style.backgroundColor = state.channelColors[channelName.toUpperCase()];
+        dot.style.display = 'block';
+    } else if (channelName) {
+        // Default color for channels without custom color
+        dot.style.backgroundColor = '#555';
+        dot.style.display = 'block';
+    } else {
+        dot.style.display = 'none';
+    }
 }
 
 async function saveField(recordName, field, value) {
@@ -484,7 +512,7 @@ function updateSyncStatus(status) {
             textEl.textContent = 'Synced';
             break;
         case 'error':
-            textEl.textContent = 'Sync Error';
+            textEl.textContent = 'Error';
             break;
     }
 }
@@ -497,12 +525,12 @@ function updateLastUpdated() {
     const diff = Math.floor((now - state.lastUpdated) / 1000);
 
     if (diff < 60) {
-        el.textContent = 'Updated just now';
+        el.textContent = 'Just now';
     } else if (diff < 3600) {
         const mins = Math.floor(diff / 60);
-        el.textContent = `Updated ${mins} min${mins > 1 ? 's' : ''} ago`;
+        el.textContent = `${mins}m ago`;
     } else {
-        el.textContent = `Updated at ${state.lastUpdated.toLocaleTimeString()}`;
+        el.textContent = state.lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 }
 

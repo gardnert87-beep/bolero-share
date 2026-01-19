@@ -19,16 +19,16 @@
         <div id="passcode-view" class="view hidden">
             <div class="card passcode-card">
                 <div class="icon">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                         <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                     </svg>
                 </div>
                 <h1>Bolero Manager</h1>
-                <p class="subtitle">Enter passcode to access shared data</p>
+                <p class="subtitle">Enter passcode to access</p>
                 <div id="show-name-display" class="show-name"></div>
                 <form id="passcode-form">
-                    <input type="password" id="passcode-input" placeholder="Enter passcode" autocomplete="off" required>
+                    <input type="password" id="passcode-input" placeholder="Passcode" autocomplete="off" required>
                     <button type="submit" class="btn primary">Unlock</button>
                 </form>
                 <p id="passcode-error" class="error hidden"></p>
@@ -39,7 +39,7 @@
         <div id="error-view" class="view hidden">
             <div class="card error-card">
                 <div class="icon error">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="10"/>
                         <line x1="12" y1="8" x2="12" y2="12"/>
                         <line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -71,11 +71,9 @@
                         <thead>
                             <tr>
                                 <th class="col-bp">BP#</th>
-                                <th class="col-name">First Name</th>
-                                <th class="col-name">Last Name</th>
-                                <th class="col-nickname">Nickname</th>
-                                <th class="col-dept">Dept</th>
-                                <th class="col-role">Role</th>
+                                <th class="col-name">First</th>
+                                <th class="col-name">Last</th>
+                                <th class="col-username">Username</th>
                                 <th id="channel-headers" colspan="6">Channels</th>
                             </tr>
                         </thead>
@@ -87,7 +85,7 @@
             </main>
 
             <footer>
-                <p>Changes are saved automatically and sync in real-time.</p>
+                <p>Changes sync automatically</p>
             </footer>
         </div>
     </div>
