@@ -27,8 +27,7 @@
                 <h1>Welcome to Bolero Manager</h1>
                 <p class="subtitle">Collaborative Crew Management</p>
                 <div id="show-name-display" class="show-name"></div>
-                <p class="login-description">You've been invited to collaborate on this show's intercom assignments. Enter the passcode provided by your production team to access the shared data.</p>
-                <p class="login-note">Note: An Apple ID is required to make changes. You'll be prompted to sign in when editing.</p>
+                <p class="login-description">You've been invited to collaborate on this show's intercom assignments. Enter the passcode provided by your production team to access and edit the shared data.</p>
                 <form id="passcode-form">
                     <input type="password" id="passcode-input" placeholder="Enter passcode" autocomplete="off" required>
                     <button type="submit" class="btn primary">Unlock</button>
@@ -106,18 +105,18 @@
                     <span id="edit-permissions-info" class="hidden"></span>
                 </div>
                 <div class="header-right">
-                    <span id="sign-in-status" class="sign-in-status not-signed-in">Sign in to edit</span>
                     <span id="last-updated"></span>
                 </div>
             </header>
 
             <main>
-                <div id="sign-in-banner" class="sign-in-banner">
-                    <span class="banner-icon">🔒</span>
-                    <span class="banner-text">Sign in with your Apple ID to edit channel assignments and user details</span>
-                    <div id="apple-sign-in-container" class="apple-sign-in-container">
-                        <!-- CloudKit will render its sign-in button here -->
-                    </div>
+                <div id="changes-bar" class="changes-bar">
+                    <span class="changes-info">
+                        <span class="changes-icon">✏️</span>
+                        <span class="changes-text">Make changes below, then submit for approval</span>
+                        <span id="pending-count" class="pending-count"></span>
+                    </span>
+                    <button id="submit-changes-btn" class="submit-changes-btn" disabled>No Changes</button>
                 </div>
                 <div class="filter-bar">
                     <div class="filter-buttons" id="dept-filter-buttons">

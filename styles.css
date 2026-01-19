@@ -968,3 +968,118 @@ tr.view-only:hover {
 .apple-sign-in-container iframe {
     border: none !important;
 }
+
+/* Changes bar */
+.changes-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, rgba(48, 209, 88, 0.1), rgba(48, 209, 88, 0.05));
+    border: 1px solid rgba(48, 209, 88, 0.3);
+    border-radius: 10px;
+    margin: 0 20px 16px 20px;
+}
+
+.changes-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.changes-icon {
+    font-size: 16px;
+}
+
+.changes-text {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.pending-count {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.pending-count.has-pending {
+    background: var(--warning);
+    color: #000;
+    font-weight: 600;
+}
+
+.submit-changes-btn {
+    padding: 10px 20px;
+    background: var(--success);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.submit-changes-btn:hover:not(:disabled) {
+    background: #28c74d;
+    transform: translateY(-1px);
+}
+
+.submit-changes-btn:disabled {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+/* Toast notifications */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+.toast.success {
+    background: var(--success);
+    color: #000;
+}
+
+.toast.error {
+    background: var(--error);
+    color: #fff;
+}
+
+.toast-icon {
+    font-size: 16px;
+}
+
+/* Pending status indicator */
+.sync-status.pending .sync-icon {
+    background: var(--warning);
+}
+
+.sync-status.pending .sync-text {
+    color: var(--warning);
+}
+
+/* Input pending state */
+input.pending {
+    border-color: var(--warning) !important;
+}

@@ -45,9 +45,9 @@ let state = {
     shareName: '',
     editableDepartments: [],  // Empty array means all departments editable
     isAuthenticated: false,  // Passcode authenticated
-    isCloudKitAuthenticated: false,  // Signed in with Apple
     isSyncing: false,
-    lastUpdated: null
+    lastUpdated: null,
+    pendingChanges: []  // Track changes made in this session
 };
 
 // CloudKit instance
@@ -98,79 +98,9 @@ async function initCloudKit() {
 
         cloudKit = CloudKit.getDefaultContainer();
         database = cloudKit.publicCloudDatabase;
-
-        // Set up authentication with CloudKit's built-in UI
-        setupCloudKitAuth();
-
+        console.log('CloudKit: Initialized');
         resolve();
     });
-}
-
-function setupCloudKitAuth() {
-    // Configure CloudKit to render sign-in/sign-out buttons in our containers
-    const authOptions = {
-        containerEl: document.getElementById('apple-sign-in-container')
-    };
-
-    cloudKit.setUpAuth(authOptions).then(userIdentity => {
-        if (userIdentity) {
-            state.isCloudKitAuthenticated = true;
-            console.log('CloudKit: Signed in as', userIdentity.nameComponents?.givenName || 'user');
-        } else {
-            state.isCloudKitAuthenticated = false;
-            console.log('CloudKit: Not signed in');
-        }
-        updateSignInStatus();
-
-        // Listen for future sign-in
-        cloudKit.whenUserSignsIn().then(identity => {
-            console.log('CloudKit: User signed in');
-            state.isCloudKitAuthenticated = true;
-            updateSignInStatus();
-            // Hide any modals
-            const modal = document.getElementById('sign-in-modal');
-            if (modal) modal.classList.add('hidden');
-        });
-
-        // Listen for sign-out
-        cloudKit.whenUserSignsOut().then(() => {
-            console.log('CloudKit: User signed out');
-            state.isCloudKitAuthenticated = false;
-            updateSignInStatus();
-        });
-    });
-}
-
-function signInToCloudKit() {
-    console.log('CloudKit: Triggering sign-in...');
-    // Show the modal with CloudKit's rendered button
-    showSignInPrompt();
-}
-
-function updateSignInStatus() {
-    const signInStatus = document.getElementById('sign-in-status');
-    const signInBanner = document.getElementById('sign-in-banner');
-
-    if (state.isCloudKitAuthenticated) {
-        // Signed in - hide sign-in prompts
-        if (signInBanner) signInBanner.classList.add('hidden');
-        if (signInStatus) {
-            signInStatus.textContent = '✓ Signed in - editing enabled';
-            signInStatus.className = 'sign-in-status signed-in';
-        }
-    } else {
-        // Not signed in - show sign-in prompts
-        if (signInBanner) signInBanner.classList.remove('hidden');
-        if (signInStatus) {
-            signInStatus.textContent = 'Sign in to edit';
-            signInStatus.className = 'sign-in-status not-signed-in';
-        }
-    }
-
-    // Re-render the editor to update editable state of all fields
-    if (state.showData && state.users.length > 0) {
-        renderUsers();
-    }
 }
 
 async function loadShareSession() {
@@ -328,10 +258,6 @@ async function loadSharedData() {
 let currentDeptFilter = '';
 
 function canEditDepartment(department) {
-    // Must be signed in to CloudKit to edit anything
-    if (!state.isCloudKitAuthenticated) {
-        return false;
-    }
     // Empty array means all departments are editable
     if (!state.editableDepartments || state.editableDepartments.length === 0) {
         return true;
@@ -350,8 +276,8 @@ function renderEditor() {
     // Show edit permissions info if restricted
     updateEditPermissionsInfo();
 
-    // Update sign-in status (CloudKit handles its own sign-in button)
-    updateSignInStatus();
+    // Setup submit changes button
+    setupSubmitButton();
 
     updateSyncStatus('synced');
     updateLastUpdated();
@@ -455,23 +381,12 @@ function createUserRow(user) {
     const row = document.createElement('tr');
     row.dataset.recordName = user.recordName;
 
-    // Check if this user's department is editable (also checks CloudKit auth)
+    // Check if this user's department is editable
     const isEditable = canEditDepartment(user.department);
 
-    // Add view-only class if not editable
+    // Add view-only class if not editable (based on department permissions)
     if (!isEditable) {
         row.classList.add('view-only');
-
-        // If not signed in, clicking the row prompts sign-in
-        if (!state.isCloudKitAuthenticated) {
-            row.style.cursor = 'pointer';
-            row.addEventListener('click', (e) => {
-                // Don't trigger if clicking on a link or button
-                if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
-                    showSignInPrompt();
-                }
-            });
-        }
     }
 
     // BP# with lock indicator for view-only
@@ -780,13 +695,28 @@ function getChannelColor(channelName) {
 }
 
 async function saveField(recordName, field, value) {
-    // Check if signed in to CloudKit
-    if (!state.isCloudKitAuthenticated) {
-        console.log('SAVE: Not signed in, prompting sign in...');
-        showSignInPrompt();
-        return;
+    const user = state.users.find(u => u.recordName === recordName);
+    if (!user) return;
+
+    const oldValue = user[field] || '';
+
+    // Update local state
+    user[field] = value;
+
+    // Queue the change request
+    queueChangeRequest(user, field, oldValue, value);
+
+    // Update UI to show change is pending
+    const input = document.querySelector(`input[data-record-name="${recordName}"][data-field="${field}"]`);
+    if (input) {
+        input.classList.add('pending');
     }
 
+    updatePendingChangesUI();
+}
+
+// Legacy function - keeping for compatibility but redirecting
+async function saveFieldLegacy(recordName, field, value) {
     updateSyncStatus('syncing');
 
     try {
@@ -871,109 +801,180 @@ async function handleSaveConflict(user, field, value) {
 }
 
 async function saveChannelAssignment(recordName, index, channel) {
-    // Check if signed in to CloudKit
-    if (!state.isCloudKitAuthenticated) {
-        console.log('SAVE: Not signed in, prompting sign in...');
-        showSignInPrompt();
-        return;
+    const user = state.users.find(u => u.recordName === recordName);
+    if (!user) return;
+
+    // Get old value
+    const oldChannels = [...user.channelAssignments];
+    const oldValue = oldChannels[index] || '';
+
+    // Update local state
+    while (user.channelAssignments.length <= index) {
+        user.channelAssignments.push('');
+    }
+    user.channelAssignments[index] = channel;
+
+    // Queue the change request
+    queueChangeRequest(user, `channel_${index}`, oldValue, channel);
+
+    updatePendingChangesUI();
+}
+
+function queueChangeRequest(user, field, oldValue, newValue) {
+    // Don't queue if value didn't actually change
+    if (oldValue === newValue) return;
+
+    // Check if there's already a pending change for this user/field
+    const existingIndex = state.pendingChanges.findIndex(
+        c => c.userID === user.userID && c.field === field
+    );
+
+    const change = {
+        id: `${user.userID}_${field}_${Date.now()}`,
+        userID: user.userID,
+        userName: `${user.firstName} ${user.lastName}`.trim() || user.nickname || 'Unknown',
+        field: field,
+        fieldDisplay: getFieldDisplayName(field),
+        oldValue: oldValue,
+        newValue: newValue,
+        timestamp: Date.now()
+    };
+
+    if (existingIndex >= 0) {
+        // Update existing change
+        state.pendingChanges[existingIndex] = change;
+    } else {
+        // Add new change
+        state.pendingChanges.push(change);
     }
 
-    updateSyncStatus('syncing');
-    console.log('SAVE: Starting channel save for', recordName, 'index', index, 'channel', channel);
+    console.log('Queued change:', change);
+}
 
-    try {
-        const user = state.users.find(u => u.recordName === recordName);
-        if (!user) {
-            console.error('SAVE: User not found for recordName', recordName);
-            return;
-        }
+function getFieldDisplayName(field) {
+    if (field.startsWith('channel_')) {
+        const index = parseInt(field.split('_')[1]);
+        return `Channel ${index + 1}`;
+    }
+    const names = {
+        'firstName': 'First Name',
+        'lastName': 'Last Name',
+        'nickname': 'Username',
+        'notes': 'Notes',
+        'headsetType': 'Headset Type'
+    };
+    return names[field] || field;
+}
 
-        console.log('SAVE: Current channelAssignments before update:', JSON.stringify(user.channelAssignments));
-
-        while (user.channelAssignments.length <= index) {
-            user.channelAssignments.push('');
-        }
-        user.channelAssignments[index] = channel;
-
-        console.log('SAVE: Updated channelAssignments:', JSON.stringify(user.channelAssignments));
-
-        const recordToSave = {
-            recordType: 'SharedUser',
-            recordName: recordName,
-            recordChangeTag: user.recordChangeTag,
-            fields: {
-                channelAssignments: { value: user.channelAssignments },
-                updatedAt: { value: Date.now() }
-            }
-        };
-
-        console.log('SAVE: Saving record to CloudKit:', JSON.stringify(recordToSave));
-
-        const response = await database.saveRecords([recordToSave]);
-
-        console.log('SAVE: CloudKit response:', JSON.stringify(response));
-
-        // Check for errors in response
-        if (response.hasErrors) {
-            console.error('SAVE: CloudKit save errors:', response.errors);
-            // Try to refetch and retry on conflict
-            await handleChannelSaveConflict(user, user.channelAssignments);
-            return;
-        }
-
-        if (response.records && response.records.length > 0) {
-            user.recordChangeTag = response.records[0].recordChangeTag;
-            console.log('SAVE: Updated recordChangeTag to', user.recordChangeTag);
-        }
-
-        state.lastUpdated = new Date();
-        updateSyncStatus('synced');
-        updateLastUpdated();
-        console.log('SAVE: Save completed successfully');
-
-    } catch (error) {
-        console.error('SAVE: Error saving channel assignment:', error);
-        // Check if it's an auth error
-        if (error._ckErrorCode === 'AUTHENTICATION_REQUIRED') {
-            state.isCloudKitAuthenticated = false;
-            updateSignInStatus();
-            showSignInPrompt();
-        } else {
-            updateSyncStatus('error');
-            setTimeout(() => updateSyncStatus('synced'), 3000);
-        }
+function setupSubmitButton() {
+    const submitBtn = document.getElementById('submit-changes-btn');
+    if (submitBtn) {
+        submitBtn.onclick = submitChangeRequests;
     }
 }
 
-function showSignInPrompt() {
-    const modal = document.getElementById('sign-in-modal');
-    if (modal) {
-        modal.classList.remove('hidden');
-    } else {
-        // Create modal if it doesn't exist
-        const modalHtml = `
-            <div id="sign-in-modal" class="modal-overlay">
-                <div class="modal-content sign-in-modal">
-                    <h2>Sign in Required</h2>
-                    <p>To save changes, please sign in with your Apple ID.</p>
-                    <button id="modal-sign-in-btn" class="apple-sign-in-btn">
-                         Sign in with Apple
-                    </button>
-                    <button id="modal-cancel-btn" class="cancel-btn">Cancel</button>
-                </div>
-            </div>
-        `;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
+function updatePendingChangesUI() {
+    const count = state.pendingChanges.length;
+    const submitBtn = document.getElementById('submit-changes-btn');
+    const pendingCount = document.getElementById('pending-count');
 
-        document.getElementById('modal-sign-in-btn').addEventListener('click', async () => {
-            await signInToCloudKit();
-            document.getElementById('sign-in-modal').classList.add('hidden');
-        });
-
-        document.getElementById('modal-cancel-btn').addEventListener('click', () => {
-            document.getElementById('sign-in-modal').classList.add('hidden');
-        });
+    if (submitBtn) {
+        submitBtn.disabled = count === 0;
+        submitBtn.textContent = count > 0 ? `Submit ${count} Change${count > 1 ? 's' : ''}` : 'No Changes';
     }
+
+    if (pendingCount) {
+        pendingCount.textContent = count > 0 ? `${count} pending` : '';
+        pendingCount.className = count > 0 ? 'pending-count has-pending' : 'pending-count';
+    }
+
+    // Update sync status
+    if (count > 0) {
+        updateSyncStatus('pending');
+    } else {
+        updateSyncStatus('synced');
+    }
+}
+
+async function submitChangeRequests() {
+    if (state.pendingChanges.length === 0) return;
+
+    updateSyncStatus('syncing');
+    const submitBtn = document.getElementById('submit-changes-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+    }
+
+    try {
+        // Create a ChangeRequest record for each pending change
+        const recordsToSave = state.pendingChanges.map(change => ({
+            recordType: 'ChangeRequest',
+            fields: {
+                shareID: { value: state.shareID },
+                userID: { value: change.userID },
+                userName: { value: change.userName },
+                field: { value: change.field },
+                oldValue: { value: change.oldValue || '' },
+                newValue: { value: change.newValue || '' },
+                status: { value: 'pending' },
+                createdAt: { value: change.timestamp }
+            }
+        }));
+
+        console.log('Submitting change requests:', recordsToSave);
+
+        const response = await database.saveRecords(recordsToSave);
+
+        if (response.hasErrors) {
+            console.error('Error submitting changes:', response.errors);
+            throw new Error('Failed to submit changes');
+        }
+
+        console.log('Changes submitted successfully:', response);
+
+        // Clear pending changes
+        state.pendingChanges = [];
+        updatePendingChangesUI();
+
+        // Show success message
+        showSuccessMessage(`${recordsToSave.length} change${recordsToSave.length > 1 ? 's' : ''} submitted for approval`);
+
+    } catch (error) {
+        console.error('Error submitting change requests:', error);
+        showErrorMessage('Failed to submit changes. Please try again.');
+        updateSyncStatus('error');
+    }
+
+    if (submitBtn) {
+        submitBtn.disabled = false;
+    }
+}
+
+function showSuccessMessage(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast success';
+    toast.innerHTML = `<span class="toast-icon">✓</span> ${message}`;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+function showErrorMessage(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast error';
+    toast.innerHTML = `<span class="toast-icon">✕</span> ${message}`;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
 }
 
 async function handleChannelSaveConflict(user, channelAssignments) {
@@ -1074,10 +1075,13 @@ function updateSyncStatus(status) {
     const textEl = statusEl.querySelector('.sync-text');
     switch (status) {
         case 'syncing':
-            textEl.textContent = 'Syncing...';
+            textEl.textContent = 'Submitting...';
             break;
         case 'synced':
             textEl.textContent = 'Synced';
+            break;
+        case 'pending':
+            textEl.textContent = 'Changes pending';
             break;
         case 'error':
             textEl.textContent = 'Error';
