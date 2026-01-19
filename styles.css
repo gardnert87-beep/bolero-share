@@ -804,3 +804,89 @@ footer {
     padding: 14px 24px;
     font-size: 15px;
 }
+
+/* Sign in Modal */
+.sign-in-modal {
+    text-align: center;
+    max-width: 360px;
+}
+
+.sign-in-modal h2 {
+    margin-bottom: 12px;
+}
+
+.sign-in-modal p {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+.apple-sign-in-btn {
+    width: 100%;
+    padding: 12px 24px;
+    background: #000;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    transition: background 0.2s;
+}
+
+.apple-sign-in-btn:hover {
+    background: #333;
+}
+
+.cancel-btn {
+    width: 100%;
+    padding: 12px 24px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* Sign in status in header */
+.sign-in-status {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.sign-in-status.signed-in {
+    color: var(--success);
+    background: rgba(48, 209, 88, 0.1);
+}
+
+.sign-in-status.not-signed-in {
+    color: var(--warning);
+    background: rgba(255, 159, 10, 0.1);
+}
+
+#sign-in-btn {
+    padding: 6px 12px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#sign-in-btn:hover {
+    background: var(--accent-hover);
+}

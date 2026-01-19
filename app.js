@@ -44,7 +44,8 @@ let state = {
     departmentColors: {},
     shareName: '',
     editableDepartments: [],  // Empty array means all departments editable
-    isAuthenticated: false,
+    isAuthenticated: false,  // Passcode authenticated
+    isCloudKitAuthenticated: false,  // Signed in with Apple
     isSyncing: false,
     lastUpdated: null
 };
@@ -97,8 +98,57 @@ async function initCloudKit() {
 
         cloudKit = CloudKit.getDefaultContainer();
         database = cloudKit.publicCloudDatabase;
+
+        // Check if already signed in
+        cloudKit.setUpAuth().then(userIdentity => {
+            if (userIdentity) {
+                state.isCloudKitAuthenticated = true;
+                console.log('CloudKit: Already signed in');
+                updateSignInStatus();
+            } else {
+                console.log('CloudKit: Not signed in');
+                updateSignInStatus();
+            }
+        });
+
         resolve();
     });
+}
+
+async function signInToCloudKit() {
+    try {
+        const userIdentity = await cloudKit.whenUserSignsIn();
+        if (userIdentity) {
+            state.isCloudKitAuthenticated = true;
+            console.log('CloudKit: Signed in successfully');
+            updateSignInStatus();
+            return true;
+        }
+    } catch (error) {
+        console.error('CloudKit sign in error:', error);
+    }
+    return false;
+}
+
+function updateSignInStatus() {
+    const signInBtn = document.getElementById('sign-in-btn');
+    const signInStatus = document.getElementById('sign-in-status');
+
+    if (signInBtn) {
+        if (state.isCloudKitAuthenticated) {
+            signInBtn.classList.add('hidden');
+            if (signInStatus) {
+                signInStatus.textContent = '✓ Signed in - editing enabled';
+                signInStatus.className = 'sign-in-status signed-in';
+            }
+        } else {
+            signInBtn.classList.remove('hidden');
+            if (signInStatus) {
+                signInStatus.textContent = 'Sign in to enable editing';
+                signInStatus.className = 'sign-in-status not-signed-in';
+            }
+        }
+    }
 }
 
 async function loadShareSession() {
@@ -273,6 +323,13 @@ function renderEditor() {
 
     // Show edit permissions info if restricted
     updateEditPermissionsInfo();
+
+    // Setup sign-in button handler
+    const signInBtn = document.getElementById('sign-in-btn');
+    if (signInBtn) {
+        signInBtn.onclick = () => signInToCloudKit();
+    }
+    updateSignInStatus();
 
     updateSyncStatus('synced');
     updateLastUpdated();
@@ -690,6 +747,13 @@ function getChannelColor(channelName) {
 }
 
 async function saveField(recordName, field, value) {
+    // Check if signed in to CloudKit
+    if (!state.isCloudKitAuthenticated) {
+        console.log('SAVE: Not signed in, prompting sign in...');
+        showSignInPrompt();
+        return;
+    }
+
     updateSyncStatus('syncing');
 
     try {
@@ -774,6 +838,13 @@ async function handleSaveConflict(user, field, value) {
 }
 
 async function saveChannelAssignment(recordName, index, channel) {
+    // Check if signed in to CloudKit
+    if (!state.isCloudKitAuthenticated) {
+        console.log('SAVE: Not signed in, prompting sign in...');
+        showSignInPrompt();
+        return;
+    }
+
     updateSyncStatus('syncing');
     console.log('SAVE: Starting channel save for', recordName, 'index', index, 'channel', channel);
 
@@ -829,8 +900,46 @@ async function saveChannelAssignment(recordName, index, channel) {
 
     } catch (error) {
         console.error('SAVE: Error saving channel assignment:', error);
-        updateSyncStatus('error');
-        setTimeout(() => updateSyncStatus('synced'), 3000);
+        // Check if it's an auth error
+        if (error._ckErrorCode === 'AUTHENTICATION_REQUIRED') {
+            state.isCloudKitAuthenticated = false;
+            updateSignInStatus();
+            showSignInPrompt();
+        } else {
+            updateSyncStatus('error');
+            setTimeout(() => updateSyncStatus('synced'), 3000);
+        }
+    }
+}
+
+function showSignInPrompt() {
+    const modal = document.getElementById('sign-in-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    } else {
+        // Create modal if it doesn't exist
+        const modalHtml = `
+            <div id="sign-in-modal" class="modal-overlay">
+                <div class="modal-content sign-in-modal">
+                    <h2>Sign in Required</h2>
+                    <p>To save changes, please sign in with your Apple ID.</p>
+                    <button id="modal-sign-in-btn" class="apple-sign-in-btn">
+                         Sign in with Apple
+                    </button>
+                    <button id="modal-cancel-btn" class="cancel-btn">Cancel</button>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        document.getElementById('modal-sign-in-btn').addEventListener('click', async () => {
+            await signInToCloudKit();
+            document.getElementById('sign-in-modal').classList.add('hidden');
+        });
+
+        document.getElementById('modal-cancel-btn').addEventListener('click', () => {
+            document.getElementById('sign-in-modal').classList.add('hidden');
+        });
     }
 }
 
