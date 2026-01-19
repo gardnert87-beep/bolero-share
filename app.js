@@ -8,8 +8,29 @@ const CONFIG = {
     refreshInterval: 5000
 };
 
-// Headset types
-const HEADSET_TYPES = ['Single Ear', 'Dual Ear', 'In-Ear', 'Custom'];
+// Headset types and their SVG icons
+const HEADSET_TYPES = {
+    'Single Ear': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+        <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5z" opacity="0.3"/>
+        <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5z"/>
+    </svg>`,
+    'Dual Ear': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+        <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5z"/>
+        <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5z"/>
+    </svg>`,
+    'In-Ear': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="8" cy="14" r="3"/>
+        <circle cx="16" cy="14" r="3"/>
+        <path d="M8 11V7M16 11V7"/>
+    </svg>`,
+    'Custom': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+        <circle cx="12" cy="17" r="0.5" fill="currentColor"/>
+    </svg>`
+};
 
 // State
 let state = {
@@ -228,7 +249,7 @@ function renderEditor() {
     const channelCount = state.showData.channelSlotCount || 6;
     const headerCell = document.getElementById('channel-headers');
     headerCell.colSpan = channelCount;
-    headerCell.textContent = `Channels (1-${channelCount})`;
+    headerCell.textContent = `Channels`;
 
     const tbody = document.getElementById('users-body');
     tbody.innerHTML = '';
@@ -261,7 +282,7 @@ function createUserRow(user) {
     // Department
     row.appendChild(createDepartmentCell(user));
 
-    // Headset (editable)
+    // Headset (icon with hidden select)
     row.appendChild(createHeadsetCell(user));
 
     // Channel assignments
@@ -327,12 +348,22 @@ function createDepartmentCell(user) {
 
 function createHeadsetCell(user) {
     const cell = document.createElement('td');
+    cell.className = 'headset-cell';
 
+    const wrapper = document.createElement('div');
+    wrapper.className = 'headset-icon-wrapper';
+    wrapper.title = user.headsetType || 'Single Ear';
+
+    // Icon
+    const iconSpan = document.createElement('span');
+    iconSpan.innerHTML = HEADSET_TYPES[user.headsetType] || HEADSET_TYPES['Single Ear'];
+    wrapper.appendChild(iconSpan);
+
+    // Hidden select
     const select = document.createElement('select');
-    select.className = 'headset-select';
     select.dataset.recordName = user.recordName;
 
-    HEADSET_TYPES.forEach(type => {
+    Object.keys(HEADSET_TYPES).forEach(type => {
         const option = document.createElement('option');
         option.value = type;
         option.textContent = type;
@@ -342,10 +373,13 @@ function createHeadsetCell(user) {
     select.value = user.headsetType || 'Single Ear';
 
     select.addEventListener('change', () => {
+        iconSpan.innerHTML = HEADSET_TYPES[select.value];
+        wrapper.title = select.value;
         saveField(user.recordName, 'headsetType', select.value);
     });
 
-    cell.appendChild(select);
+    wrapper.appendChild(select);
+    cell.appendChild(wrapper);
     return cell;
 }
 
@@ -411,6 +445,11 @@ function updateChannelBubble(bubble, channelName) {
         }
         bubble.textContent = channelName;
     }
+}
+
+function getChannelColor(channelName) {
+    if (!channelName) return null;
+    return state.channelColors[channelName.toUpperCase()] || null;
 }
 
 async function saveField(recordName, field, value) {
