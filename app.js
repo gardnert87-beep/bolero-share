@@ -277,16 +277,37 @@ function renderEditor() {
     updateSyncStatus('synced');
     updateLastUpdated();
 
-    const channelCount = state.showData.channelSlotCount || 6;
-    const headerCell = document.getElementById('channel-headers');
-    headerCell.colSpan = channelCount;
-    headerCell.textContent = `Channels`;
+    // Render individual channel headers
+    renderChannelHeaders();
 
     // Populate department filter buttons
     populateDepartmentFilter();
 
     // Render users (with filter applied)
     renderUsers();
+}
+
+function renderChannelHeaders() {
+    const channelCount = state.showData.channelSlotCount || 6;
+    const headerRow = document.getElementById('header-row');
+    const placeholder = document.getElementById('channel-headers');
+
+    // Remove existing channel headers (keep the placeholder for reference)
+    const existingHeaders = headerRow.querySelectorAll('.channel-header');
+    existingHeaders.forEach(h => h.remove());
+
+    // Insert channel headers before Notes column
+    const notesHeader = headerRow.querySelector('.col-notes');
+
+    for (let i = 0; i < channelCount; i++) {
+        const th = document.createElement('th');
+        th.className = 'col-channel channel-header';
+        th.textContent = `Ch ${i + 1}`;
+        headerRow.insertBefore(th, notesHeader);
+    }
+
+    // Hide the placeholder
+    placeholder.style.display = 'none';
 }
 
 function populateDepartmentFilter() {

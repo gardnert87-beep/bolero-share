@@ -307,6 +307,7 @@ main {
 table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
 }
 
 th, td {
@@ -331,15 +332,19 @@ th {
 .col-username { width: 120px; }
 .col-dept { width: 80px; text-align: center; }
 .col-headset { width: 45px; text-align: center; }
-.col-notes { width: 400px; }
-.col-channel { width: auto; text-align: center; white-space: nowrap; padding: 6px 2px; }
+.col-notes { width: 300px; }
+.col-channel { width: 60px; min-width: 60px; max-width: 60px; text-align: center; white-space: nowrap; padding: 6px 2px; }
 
 td {
     font-size: 13px;
 }
 
 td.channel-cell {
-    padding: 4px 1px;
+    width: 60px;
+    min-width: 60px;
+    max-width: 60px;
+    padding: 4px 2px;
+    text-align: center;
 }
 
 td.bp-cell {
@@ -525,11 +530,12 @@ tr.view-only td {
 .channel-cell {
     padding: 2px 0;
     text-align: center;
+    vertical-align: middle;
 }
 
 .channel-bubble {
     display: inline-block;
-    padding: 3px 6px;
+    padding: 3px 4px;
     border-radius: 10px;
     font-size: 11px;
     font-weight: 500;
@@ -537,6 +543,10 @@ tr.view-only td {
     cursor: pointer;
     transition: opacity 0.15s;
     white-space: nowrap;
+    min-width: 44px;
+    max-width: 52px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .channel-bubble:hover {
@@ -547,6 +557,7 @@ tr.view-only td {
     background: var(--bg-tertiary);
     color: var(--text-muted);
     font-size: 9px;
+    min-width: 30px;
 }
 
 .channel-bubble.has-color {
