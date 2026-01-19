@@ -8,6 +8,30 @@ const CONFIG = {
     refreshInterval: 5000 // 5 seconds
 };
 
+// Headset type icons (SVG paths)
+const HEADSET_ICONS = {
+    'Single Ear': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+        <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5z" opacity="0.3"/>
+        <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5z"/>
+    </svg>`,
+    'Dual Ear': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+        <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5z"/>
+        <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5z"/>
+    </svg>`,
+    'In-Ear': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="8" cy="12" r="3"/>
+        <circle cx="16" cy="12" r="3"/>
+        <path d="M8 9V6M16 9V6"/>
+    </svg>`,
+    'Custom': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>`
+};
+
 // State
 let state = {
     shareID: null,
@@ -15,7 +39,9 @@ let state = {
     showData: null,
     users: [],
     channels: [],
-    channelColors: {}, // Channel name -> hex color
+    departments: [],
+    channelColors: {},
+    departmentColors: {},
     isAuthenticated: false,
     isSyncing: false,
     lastUpdated: null
@@ -37,7 +63,6 @@ const views = {
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
-    // Get share ID from URL
     const urlParams = new URLSearchParams(window.location.search);
     state.shareID = urlParams.get('share');
 
@@ -46,7 +71,6 @@ async function init() {
         return;
     }
 
-    // Initialize CloudKit
     try {
         await initCloudKit();
         await loadShareSession();
@@ -57,7 +81,7 @@ async function init() {
 }
 
 async function initCloudKit() {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         CloudKit.configure({
             containers: [{
                 containerIdentifier: CONFIG.containerIdentifier,
@@ -71,8 +95,6 @@ async function initCloudKit() {
 
         cloudKit = CloudKit.getDefaultContainer();
         database = cloudKit.publicCloudDatabase;
-
-        // For public database access, we don't need user authentication
         resolve();
     });
 }
@@ -81,7 +103,6 @@ async function loadShareSession() {
     showView('loading');
 
     try {
-        // Fetch share session record
         const response = await database.fetchRecords([state.shareID]);
 
         if (!response.records || response.records.length === 0) {
@@ -91,13 +112,11 @@ async function loadShareSession() {
 
         const record = response.records[0];
 
-        // Check if share is active
         if (!record.fields.isActive || !record.fields.isActive.value) {
             showError('This share has been revoked by the owner.');
             return;
         }
 
-        // Check expiration
         if (record.fields.expiresAt && record.fields.expiresAt.value) {
             const expiresAt = new Date(record.fields.expiresAt.value);
             if (new Date() > expiresAt) {
@@ -106,14 +125,11 @@ async function loadShareSession() {
             }
         }
 
-        // Store passcode hash for verification
         state.passcodeHash = record.fields.passcodeHash.value;
 
-        // Show show name
         const showName = record.fields.showName ? record.fields.showName.value : 'Shared Show';
         document.getElementById('show-name-display').textContent = showName;
 
-        // Show passcode view
         showView('passcode');
         document.getElementById('passcode-input').focus();
 
@@ -123,14 +139,12 @@ async function loadShareSession() {
     }
 }
 
-// Passcode form handler
 document.getElementById('passcode-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const passcode = document.getElementById('passcode-input').value;
     const errorEl = document.getElementById('passcode-error');
 
-    // Hash the entered passcode and compare
     const enteredHash = await hashPasscode(passcode);
 
     if (enteredHash !== state.passcodeHash) {
@@ -141,7 +155,6 @@ document.getElementById('passcode-form').addEventListener('submit', async (e) =>
         return;
     }
 
-    // Passcode correct - load data
     state.isAuthenticated = true;
     errorEl.classList.add('hidden');
     await loadSharedData();
@@ -166,16 +179,25 @@ async function loadSharedData() {
             state.showData = {
                 name: showRecord.fields.name ? showRecord.fields.name.value : 'Shared Show',
                 channels: showRecord.fields.channels ? showRecord.fields.channels.value : [],
+                departments: showRecord.fields.departments ? showRecord.fields.departments.value : [],
                 channelSlotCount: showRecord.fields.channelSlotCount ? showRecord.fields.channelSlotCount.value : 6
             };
 
-            // Parse channel colors if available
+            // Parse channel colors
             if (showRecord.fields.channelColorsJSON && showRecord.fields.channelColorsJSON.value) {
                 try {
                     state.channelColors = JSON.parse(showRecord.fields.channelColorsJSON.value);
                 } catch (e) {
-                    console.warn('Failed to parse channel colors:', e);
                     state.channelColors = {};
+                }
+            }
+
+            // Parse department colors
+            if (showRecord.fields.departmentColorsJSON && showRecord.fields.departmentColorsJSON.value) {
+                try {
+                    state.departmentColors = JSON.parse(showRecord.fields.departmentColorsJSON.value);
+                } catch (e) {
+                    state.departmentColors = {};
                 }
             }
         }
@@ -203,20 +225,18 @@ async function loadSharedData() {
                 channelAssignments: record.fields.channelAssignments ? record.fields.channelAssignments.value : [],
                 department: record.fields.department ? record.fields.department.value : '',
                 role: record.fields.role ? record.fields.role.value : '',
+                headsetType: record.fields.headsetType ? record.fields.headsetType.value : 'Single Ear',
                 recordChangeTag: record.recordChangeTag
             }));
 
-            // Sort by beltpack number
             state.users.sort((a, b) => (a.beltpackNumber || 999) - (b.beltpackNumber || 999));
         }
 
         state.lastUpdated = new Date();
 
-        // Show editor
         showView('editor');
         renderEditor();
 
-        // Start auto-refresh
         setInterval(refreshData, CONFIG.refreshInterval);
 
     } catch (error) {
@@ -226,18 +246,15 @@ async function loadSharedData() {
 }
 
 function renderEditor() {
-    // Set title
     document.getElementById('show-title').textContent = state.showData.name;
     updateSyncStatus('synced');
     updateLastUpdated();
 
-    // Render channel headers
     const channelCount = state.showData.channelSlotCount || 6;
     const headerCell = document.getElementById('channel-headers');
     headerCell.colSpan = channelCount;
     headerCell.textContent = `Channels (1-${channelCount})`;
 
-    // Render users
     const tbody = document.getElementById('users-body');
     tbody.innerHTML = '';
 
@@ -265,6 +282,12 @@ function createUserRow(user) {
 
     // Username (nickname)
     row.appendChild(createEditableCell(user, 'nickname', user.nickname, true));
+
+    // Department
+    row.appendChild(createDepartmentCell(user));
+
+    // Headset
+    row.appendChild(createHeadsetCell(user));
 
     // Channel assignments
     const channelCount = state.showData.channelSlotCount || 6;
@@ -299,6 +322,51 @@ function createEditableCell(user, field, value, isUsername = false) {
     return cell;
 }
 
+function createDepartmentCell(user) {
+    const cell = document.createElement('td');
+
+    if (user.department) {
+        const badge = document.createElement('span');
+        badge.className = 'dept-badge';
+
+        // Check for department color
+        const color = state.departmentColors[user.department];
+        if (color) {
+            const dot = document.createElement('span');
+            dot.className = 'dept-color-dot';
+            dot.style.backgroundColor = color;
+            badge.appendChild(dot);
+        }
+
+        const text = document.createElement('span');
+        text.textContent = user.department;
+        badge.appendChild(text);
+
+        cell.appendChild(badge);
+    } else {
+        cell.textContent = '--';
+        cell.style.color = 'var(--text-muted)';
+    }
+
+    return cell;
+}
+
+function createHeadsetCell(user) {
+    const cell = document.createElement('td');
+    cell.className = 'headset-cell';
+
+    const wrapper = document.createElement('span');
+    wrapper.className = 'headset-icon';
+
+    const iconSvg = HEADSET_ICONS[user.headsetType] || HEADSET_ICONS['Single Ear'];
+    wrapper.innerHTML = iconSvg;
+
+    cell.appendChild(wrapper);
+    cell.title = user.headsetType;
+
+    return cell;
+}
+
 function createChannelCell(user, index) {
     const cell = document.createElement('td');
     cell.className = 'channel-cell';
@@ -306,7 +374,6 @@ function createChannelCell(user, index) {
     const wrapper = document.createElement('div');
     wrapper.className = 'channel-select-wrapper';
 
-    // Color dot
     const colorDot = document.createElement('div');
     colorDot.className = 'channel-color-dot';
     const currentChannel = user.channelAssignments[index] || '';
@@ -316,13 +383,11 @@ function createChannelCell(user, index) {
     select.dataset.recordName = user.recordName;
     select.dataset.channelIndex = index;
 
-    // Empty option
     const emptyOption = document.createElement('option');
     emptyOption.value = '';
     emptyOption.textContent = '--';
     select.appendChild(emptyOption);
 
-    // Channel options
     state.showData.channels.forEach(channel => {
         const option = document.createElement('option');
         option.value = channel;
@@ -330,7 +395,6 @@ function createChannelCell(user, index) {
         select.appendChild(option);
     });
 
-    // Set current value
     select.value = currentChannel;
 
     select.addEventListener('change', () => {
@@ -349,7 +413,6 @@ function updateColorDot(dot, channelName) {
         dot.style.backgroundColor = state.channelColors[channelName.toUpperCase()];
         dot.style.display = 'block';
     } else if (channelName) {
-        // Default color for channels without custom color
         dot.style.backgroundColor = '#555';
         dot.style.display = 'block';
     } else {
@@ -364,10 +427,8 @@ async function saveField(recordName, field, value) {
         const user = state.users.find(u => u.recordName === recordName);
         if (!user) return;
 
-        // Update local state
         user[field] = value;
 
-        // Save to CloudKit
         const recordToSave = {
             recordType: 'SharedUser',
             recordName: recordName,
@@ -384,7 +445,6 @@ async function saveField(recordName, field, value) {
             user.recordChangeTag = response.records[0].recordChangeTag;
         }
 
-        // Flash saved indicator
         const input = document.querySelector(`input[data-record-name="${recordName}"][data-field="${field}"]`);
         if (input) {
             input.classList.remove('saving');
@@ -409,13 +469,11 @@ async function saveChannelAssignment(recordName, index, channel) {
         const user = state.users.find(u => u.recordName === recordName);
         if (!user) return;
 
-        // Update local state
         while (user.channelAssignments.length <= index) {
             user.channelAssignments.push('');
         }
         user.channelAssignments[index] = channel;
 
-        // Save to CloudKit
         const recordToSave = {
             recordType: 'SharedUser',
             recordName: recordName,
@@ -465,11 +523,12 @@ async function refreshData() {
             response.records.forEach(record => {
                 const existingUser = state.users.find(u => u.recordName === record.recordName);
                 if (existingUser && existingUser.recordChangeTag !== record.recordChangeTag) {
-                    // Update local data
                     existingUser.firstName = record.fields.firstName ? record.fields.firstName.value : '';
                     existingUser.lastName = record.fields.lastName ? record.fields.lastName.value : '';
                     existingUser.nickname = record.fields.nickname ? record.fields.nickname.value : '';
                     existingUser.channelAssignments = record.fields.channelAssignments ? record.fields.channelAssignments.value : [];
+                    existingUser.department = record.fields.department ? record.fields.department.value : '';
+                    existingUser.headsetType = record.fields.headsetType ? record.fields.headsetType.value : 'Single Ear';
                     existingUser.recordChangeTag = record.recordChangeTag;
                     hasChanges = true;
                 }
@@ -534,5 +593,4 @@ function updateLastUpdated() {
     }
 }
 
-// Update the "last updated" display every minute
 setInterval(updateLastUpdated, 60000);

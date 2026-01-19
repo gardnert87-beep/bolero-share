@@ -261,8 +261,10 @@ th {
 }
 
 .col-bp { width: 45px; text-align: center; }
-.col-name { width: 100px; }
-.col-username { width: 110px; }
+.col-name { width: 90px; }
+.col-username { width: 100px; }
+.col-dept { width: 90px; }
+.col-headset { width: 80px; }
 
 td {
     font-size: 13px;
@@ -327,6 +329,42 @@ td input.username-input:focus {
 @keyframes saved-flash {
     0% { background: rgba(48, 209, 88, 0.25); }
     100% { background: transparent; }
+}
+
+/* Department badge */
+.dept-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+.dept-color-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+/* Headset icon */
+.headset-cell {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.headset-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.headset-icon svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
 }
 
 /* Channel cells with color */
