@@ -107,7 +107,6 @@
                 </div>
                 <div class="header-right">
                     <span id="sign-in-status" class="sign-in-status not-signed-in">Sign in to edit</span>
-                    <button id="sign-in-btn">Sign in with Apple</button>
                     <span id="last-updated"></span>
                 </div>
             </header>
@@ -116,7 +115,9 @@
                 <div id="sign-in-banner" class="sign-in-banner">
                     <span class="banner-icon">🔒</span>
                     <span class="banner-text">Sign in with your Apple ID to edit channel assignments and user details</span>
-                    <button id="banner-sign-in-btn" class="banner-sign-in-btn"> Sign in with Apple</button>
+                    <div id="apple-sign-in-container" class="apple-sign-in-container">
+                        <!-- CloudKit will render its sign-in button here -->
+                    </div>
                 </div>
                 <div class="filter-bar">
                     <div class="filter-buttons" id="dept-filter-buttons">

@@ -99,52 +99,60 @@ async function initCloudKit() {
         cloudKit = CloudKit.getDefaultContainer();
         database = cloudKit.publicCloudDatabase;
 
-        // Check if already signed in
-        cloudKit.setUpAuth().then(userIdentity => {
-            if (userIdentity) {
-                state.isCloudKitAuthenticated = true;
-                console.log('CloudKit: Already signed in');
-                updateSignInStatus();
-            } else {
-                console.log('CloudKit: Not signed in');
-                updateSignInStatus();
-            }
-        });
+        // Set up authentication with CloudKit's built-in UI
+        setupCloudKitAuth();
 
         resolve();
     });
 }
 
-async function signInToCloudKit() {
-    console.log('CloudKit: Attempting sign in...');
-    try {
-        // This triggers the Apple ID sign-in popup
-        const userIdentity = await cloudKit.whenUserSignsIn();
-        console.log('CloudKit: Sign in response:', userIdentity);
+function setupCloudKitAuth() {
+    // Configure CloudKit to render sign-in/sign-out buttons in our containers
+    const authOptions = {
+        containerEl: document.getElementById('apple-sign-in-container')
+    };
+
+    cloudKit.setUpAuth(authOptions).then(userIdentity => {
         if (userIdentity) {
             state.isCloudKitAuthenticated = true;
-            console.log('CloudKit: Signed in successfully as', userIdentity.nameComponents?.givenName || 'user');
+            console.log('CloudKit: Signed in as', userIdentity.nameComponents?.givenName || 'user');
+        } else {
+            state.isCloudKitAuthenticated = false;
+            console.log('CloudKit: Not signed in');
+        }
+        updateSignInStatus();
+
+        // Listen for future sign-in
+        cloudKit.whenUserSignsIn().then(identity => {
+            console.log('CloudKit: User signed in');
+            state.isCloudKitAuthenticated = true;
             updateSignInStatus();
-            // Hide any open sign-in modals
+            // Hide any modals
             const modal = document.getElementById('sign-in-modal');
             if (modal) modal.classList.add('hidden');
-            return true;
-        }
-    } catch (error) {
-        console.error('CloudKit sign in error:', error);
-        alert('Sign in failed. Please try again.\n\nError: ' + (error.message || error._reason || 'Unknown error'));
-    }
-    return false;
+        });
+
+        // Listen for sign-out
+        cloudKit.whenUserSignsOut().then(() => {
+            console.log('CloudKit: User signed out');
+            state.isCloudKitAuthenticated = false;
+            updateSignInStatus();
+        });
+    });
+}
+
+function signInToCloudKit() {
+    console.log('CloudKit: Triggering sign-in...');
+    // Show the modal with CloudKit's rendered button
+    showSignInPrompt();
 }
 
 function updateSignInStatus() {
-    const signInBtn = document.getElementById('sign-in-btn');
     const signInStatus = document.getElementById('sign-in-status');
     const signInBanner = document.getElementById('sign-in-banner');
 
     if (state.isCloudKitAuthenticated) {
         // Signed in - hide sign-in prompts
-        if (signInBtn) signInBtn.classList.add('hidden');
         if (signInBanner) signInBanner.classList.add('hidden');
         if (signInStatus) {
             signInStatus.textContent = '✓ Signed in - editing enabled';
@@ -152,7 +160,6 @@ function updateSignInStatus() {
         }
     } else {
         // Not signed in - show sign-in prompts
-        if (signInBtn) signInBtn.classList.remove('hidden');
         if (signInBanner) signInBanner.classList.remove('hidden');
         if (signInStatus) {
             signInStatus.textContent = 'Sign in to edit';
@@ -343,15 +350,7 @@ function renderEditor() {
     // Show edit permissions info if restricted
     updateEditPermissionsInfo();
 
-    // Setup sign-in button handlers
-    const signInBtn = document.getElementById('sign-in-btn');
-    if (signInBtn) {
-        signInBtn.onclick = () => signInToCloudKit();
-    }
-    const bannerSignInBtn = document.getElementById('banner-sign-in-btn');
-    if (bannerSignInBtn) {
-        bannerSignInBtn.onclick = () => signInToCloudKit();
-    }
+    // Update sign-in status (CloudKit handles its own sign-in button)
     updateSignInStatus();
 
     updateSyncStatus('synced');
